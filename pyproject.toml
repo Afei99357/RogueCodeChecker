@@ -1,0 +1,75 @@
+[project]
+name = "roguecodechecker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "black>=24.1.1",
+    "isort>=5.13.2",
+    "flake8>=7.0.0",
+    "mypy>=1.8.0",
+    "types-requests>=2.31.0",
+    "pytest>=7.4.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.21.1",
+]
+
+[tool.mypy]
+# Start with lenient settings, gradually tighten as codebase improves
+python_version = "3.13"
+ignore_missing_imports = true
+no_strict_optional = true
+
+# Basic type checking (enabled from start)
+check_untyped_defs = true
+disallow_untyped_calls = false  # TODO: Enable when ready for stricter checking
+disallow_untyped_defs = false   # TODO: Enable when ready for stricter checking
+disallow_incomplete_defs = false # TODO: Enable when ready for stricter checking
+
+# Error reporting
+show_error_codes = true
+pretty = true
+color_output = true
+
+# Warnings (start lenient)
+warn_redundant_casts = true
+warn_unused_ignores = false     # TODO: Enable to catch unnecessary # type: ignore
+warn_return_any = false         # TODO: Enable when return types are more consistent
+warn_unreachable = true
+
+# Advanced strictness (disabled for now, enable incrementally)
+# disallow_any_generics = true     # TODO: Enable for stricter generic typing
+# disallow_subclassing_any = true  # TODO: Enable for stricter inheritance
+# strict_equality = true           # TODO: Enable for stricter equality checks
+# strict_concatenate = true        # TODO: Enable for stricter string/list concat
+
+[tool.pytest.ini_options]
+# Test discovery
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Output options
+addopts = [
+    "-v",                    # verbose output
+    "--tb=short",           # shorter traceback format
+    "--strict-markers",     # treat unregistered markers as errors
+    "--disable-warnings",   # reduce noise in test output
+    "--color=yes",          # colored output
+]
+
+# Test markers
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Minimum version
+minversion = "7.0"
