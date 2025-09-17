@@ -1,7 +1,7 @@
 command: [
   "streamlit",
   "run",
-  "streamlit_app/Dashboard.py"
+  "streamlit_app/main.py"
 ]
 
 env:
