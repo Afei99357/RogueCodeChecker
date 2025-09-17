@@ -1,0 +1,9 @@
+command: [
+  "streamlit",
+  "run",
+  "streamlit_app/Dashboard.py"
+]
+
+env:
+  - name: "SERVING_ENDPOINT"
+    valueFrom: "serving-endpoint"
