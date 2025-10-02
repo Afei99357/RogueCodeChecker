@@ -26,7 +26,11 @@ def main(argv=None):
     sp = sub.add_parser("scan", help="Scan a path or file list with Semgrep")
     sp.add_argument("--path", default=".", help="root path to scan")
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
-    sp.add_argument("--semgrep-config", default="auto", help="Semgrep config")
+    sp.add_argument(
+        "--semgrep-config",
+        default="semgrep_rules,auto",
+        help="Semgrep config (comma-separated: dirs/files/registry or 'auto')",
+    )
     sp.add_argument(
         "--tools",
         default="semgrep,detect-secrets,sqlfluff",
