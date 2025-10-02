@@ -75,20 +75,11 @@ def render_config_panel() -> Dict:
 
     # Semgrep Packs
     st.subheader("🧩 Semgrep Packs")
-    packs_default = "p/security-audit,p/python,p/bash"
+    packs_default = "p/security-audit,p/python,p/bash,p/javascript,p/sql"
     config["semgrep_packs"] = st.text_input(
         "Packs (comma-separated)",
         value=packs_default,
         help="Registry packs like p/python,p/security-audit,p/bash or 'auto'",
-    )
-
-    st.divider()
-
-    # Strict SQL checks (raw .sql)
-    config["sql_strict"] = st.checkbox(
-        "Strict SQL checks (raw .sql)",
-        value=False,
-        help="Flag GRANT ALL, DELETE without WHERE, and DROP TABLE in raw .sql",
     )
 
     # Display current configuration summary

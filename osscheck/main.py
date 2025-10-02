@@ -29,18 +29,18 @@ def main(argv=None):
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
-        default="p/security-audit,p/python,p/bash,p/javascript",
-        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, p/bash, p/javascript, or 'auto')",
+        default="p/security-audit,p/python,p/bash,p/javascript,p/sql",
+        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, p/bash, p/javascript, p/sql, or 'auto')",
     )
     sp.add_argument(
         "--tools",
-        default="semgrep,detect-secrets,sqlfluff,shellcheck",
+        default="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict",
         help="Comma-separated list of tools to run",
     )
     sp.add_argument(
-        "--sql-strict",
+        "--no-sql-strict",
         action="store_true",
-        help="Enable strict SQL checks for raw .sql (GRANT ALL, DELETE w/o WHERE, DROP TABLE)",
+        help="Disable strict raw .sql checks (enabled by default)",
     )
     sp.add_argument("--paths-from", help="File listing files to scan (one per line)")
     sp.add_argument(
@@ -70,7 +70,10 @@ def main(argv=None):
                 return 2
 
         selected = [t.strip() for t in str(args.tools).split(",") if t.strip()]
-        if args.sql_strict:
+        # Ensure strict SQL is enabled by default unless explicitly disabled
+        if args.no_sql_strict:
+            selected = [t for t in selected if t != "sql-strict"]
+        elif "sql-strict" not in selected:
             selected.append("sql-strict")
         from core.oss_runner import run_oss_tools
 

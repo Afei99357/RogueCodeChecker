@@ -36,10 +36,10 @@ class ScannerService:
                     "oss_tools", ["semgrep", "detect-secrets", "sqlfluff", "shellcheck"]
                 )
                 semgrep_packs = str(
-                    self.config.get("semgrep_packs", "p/security-audit,p/python,p/bash")
+                    self.config.get("semgrep_packs", "p/security-audit,p/python,p/bash,p/javascript,p/sql")
                 )
-                if self.config.get("sql_strict"):
-                    tools = list(tools) + ["sql-strict"]
+                # Always enable strict SQL checks by default
+                tools = list(tools) + ["sql-strict"]
                 all_findings = run_oss_tools(
                     root=temp_dir,
                     policy=policy,

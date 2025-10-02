@@ -27,21 +27,6 @@ def _map_level(level: str) -> str:
 
 def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] = None) -> List[Finding]:
     findings: List[Finding] = []
-    sh_bin = _which_abs("shellcheck")
-    if sh_bin is None:
-        findings.append(
-            Finding(
-                rule_id="OSS_ENGINE_MISSING_SHELLCHECK",
-                severity="low",
-                message="shellcheck is not installed or not in PATH.",
-                path=relpath(root, os.getcwd()),
-                position=Position(1, 1),
-                snippet=None,
-                recommendation="Install shellcheck (e.g., apt/brew install shellcheck or pipx install shellcheck-py).",
-            )
-        )
-        return findings
-
     # Build targets (.sh or .bash if explicit list, else scan root)
     targets: List[str] = []
     if files:
@@ -56,6 +41,22 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
                     targets.append(os.path.join(dirpath, fn))
 
     if not targets:
+        return findings
+
+    sh_bin = _which_abs("shellcheck")
+    if sh_bin is None:
+        # Only warn if there are shell targets to scan
+        findings.append(
+            Finding(
+                rule_id="OSS_ENGINE_MISSING_SHELLCHECK",
+                severity="low",
+                message="shellcheck is not installed or not in PATH.",
+                path=relpath(root, os.getcwd()),
+                position=Position(1, 1),
+                snippet=None,
+                recommendation="Install shellcheck (e.g., apt/brew install shellcheck or pipx install shellcheck-py).",
+            )
+        )
         return findings
 
     for path in targets:
@@ -116,4 +117,3 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
             )
 
     return findings
-
