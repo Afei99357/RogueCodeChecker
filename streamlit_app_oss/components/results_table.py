@@ -71,6 +71,15 @@ def render_findings_table(findings: List, scanner_service) -> None:
     if len(filtered_df) != len(df):
         st.caption(f"Showing {len(filtered_df)} of {len(df)} issues")
     display_columns = ["File", "Rule ID", "Severity", "Line", "Message", "Recommendation"]
+
+    # View mode: Combined table or per-file tables
+    view_mode = st.radio(
+        "View Mode",
+        options=["Combined", "By File"],
+        index=0,
+        horizontal=True,
+        help="Switch between a single combined table or one table per file",
+    )
     def style_severity(val):
         colors = {
             "critical": "background-color: #ffebee; color: #c62828",
@@ -80,25 +89,45 @@ def render_findings_table(findings: List, scanner_service) -> None:
         }
         return colors.get(val, "")
     if not filtered_df.empty:
-        styled_df = filtered_df[display_columns].style.applymap(style_severity, subset=["Severity"])
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-        col1, col2, col3 = st.columns([1, 1, 2])
+        if view_mode == "Combined":
+            styled_df = filtered_df[display_columns].style.applymap(
+                style_severity, subset=["Severity"]
+            )
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        else:
+            # Per-file tables
+            for file_name in sorted(filtered_df["File"].unique()):
+                sub = filtered_df[filtered_df["File"] == file_name]
+                st.markdown(f"**File:** {file_name} — {len(sub)} issue(s)")
+                styled_df = sub[display_columns].style.applymap(
+                    style_severity, subset=["Severity"]
+                )
+                st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+        col1, col2 = st.columns([1, 1])
         with col1:
             csv = filtered_df.to_csv(index=False)
-            st.download_button(label="📥 Download CSV", data=csv, file_name="roguecheck_results.csv", mime="text/csv")
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name="roguecheck_results.csv",
+                mime="text/csv",
+            )
         with col2:
             if st.button("👁️ Show Details"):
-                st.session_state.show_details = not st.session_state.get("show_details", False)
+                st.session_state.show_details = not st.session_state.get(
+                    "show_details", False
+                )
         if st.session_state.get("show_details", False):
             st.subheader("📋 Detailed View")
             for idx, row in filtered_df.iterrows():
                 with st.expander(f"{row['Rule ID']} - {row['File']}:{row['Line']}"):
-                    col1, col2 = st.columns(2)
-                    with col1:
+                    c1, c2 = st.columns(2)
+                    with c1:
                         st.write(f"**Severity:** {row['Severity'].title()}")
                         st.write(f"**File:** {row['File']}")
                         st.write(f"**Line:** {row['Line']}")
-                    with col2:
+                    with c2:
                         st.write(f"**Rule:** {row['Rule ID']}")
                         if row.get("Column"):
                             st.write(f"**Column:** {row['Column']}")
