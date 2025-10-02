@@ -9,10 +9,10 @@ import streamlit as st
 # Add parent directory to path so we can import shared components
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from streamlit_app.components.config_panel import render_config_panel
-from streamlit_app.components.file_upload import render_file_upload
-from streamlit_app.components.results_table import render_results
-from streamlit_app.services.scanner_service import ScannerService
+from streamlit_app_oss.components.config_panel import render_config_panel
+from streamlit_app_oss.components.file_upload import render_file_upload
+from streamlit_app_oss.components.results_table import render_results
+from streamlit_app_oss.services.scanner_service import ScannerService
 
 
 def main():
@@ -61,4 +61,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
