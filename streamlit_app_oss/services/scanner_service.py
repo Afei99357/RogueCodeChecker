@@ -39,7 +39,7 @@ class ScannerService:
                     root=temp_dir,
                     policy=policy,
                     tools=list(tools),
-                    semgrep_config="semgrep_rules",
+                    semgrep_config="p/security-audit,p/python",
                 )
                 for finding in all_findings:
                     filename = finding.path

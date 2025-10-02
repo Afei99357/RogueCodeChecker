@@ -6,7 +6,7 @@ Minimal, extensible scanner for "rogue code" patterns in AI-generated snippets.
 ```bash
 # Run all OSS tools (Semgrep, detect-secrets, sqlfluff)
 python -m osscheck scan --path . --format md \
-  --semgrep-config semgrep_rules \
+  --semgrep-config p/security-audit,p/python \
   --tools semgrep,detect-secrets,sqlfluff
 ```
 
@@ -15,19 +15,17 @@ python -m osscheck scan --path . --format md \
 * `--format md|json|sarif` — output type.
 * `--fail-on low|medium|high|critical` — exit non-zero at/above threshold.
 * `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff).
-* `--semgrep-config <value>` — Semgrep config (path/URL/dir). You can pass multiple, comma-separated (e.g., `semgrep_rules,auto`).
+* `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/python`).
 * `--paths-from <file>` — scan only files listed in a text file (one per line).
 
 ## Extending
 
-Add or modify Semgrep rules under `semgrep_rules/` or pass your own rule sets via `--semgrep-config`.
+Use upstream Semgrep rule packs via `--semgrep-config` (e.g., `p/security-audit,p/python`).
 
 ## OSS Engine Notes
 
 - The OSS engine includes Semgrep (code SAST), detect-secrets (secret scanning), and sqlfluff (SQL linting). You can toggle tools in `osscheck` via `--tools`.
-- Local Semgrep rules are included under `semgrep_rules/` (offline-friendly). Use `--semgrep-config semgrep_rules` to load them; you can pass multiple configs separated by commas (e.g., `auto,semgrep_rules`).
 - Requires `semgrep` to be installed and available on PATH. Example installation: `pipx install semgrep`.
-- The default `--semgrep-config=auto` may need network access to fetch rules. Provide a local ruleset if running fully offline.
 
 ### OSS-only App
 

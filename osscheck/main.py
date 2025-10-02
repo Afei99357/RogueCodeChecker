@@ -28,8 +28,8 @@ def main(argv=None):
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
-        default="semgrep_rules,auto",
-        help="Semgrep config (comma-separated: dirs/files/registry or 'auto')",
+        default="p/security-audit,p/python",
+        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, or 'auto')",
     )
     sp.add_argument(
         "--tools",
