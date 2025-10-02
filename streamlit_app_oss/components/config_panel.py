@@ -92,7 +92,7 @@ def render_config_panel() -> Dict:
     settings_summary.append(f"• **File limit:** {config['max_file_size_mb']} MB")
     settings_summary.append(f"• **Engine:** {config['engine']}")
     settings_summary.append(f"• **Semgrep packs:** {config['semgrep_packs']}")
-    if config["sql_strict"]:
+    if config.get("sql_strict"):
         settings_summary.append("• **SQL strict:** Enabled")
 
     if config["custom_domains"]:
