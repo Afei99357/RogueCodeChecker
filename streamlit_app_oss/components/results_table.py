@@ -47,13 +47,13 @@ def render_findings_table(findings: List, scanner_service) -> None:
     if df.empty:
         st.info("No findings to display")
         return
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2 = st.columns([2, 2])
     with col1:
         all_severities = ["critical", "high", "medium", "low"]
         severity_filter = st.multiselect(
             "Filter by Severity",
             options=all_severities,
-            default=["critical", "high"],
+            default=all_severities,
             help="Select severity levels to display",
         )
     with col2:
@@ -63,10 +63,6 @@ def render_findings_table(findings: List, scanner_service) -> None:
             default=[],
             help="Select specific files (leave empty for all)",
         )
-    with col3:
-        show_all = st.checkbox("Show All", help="Show all severity levels")
-        if show_all:
-            severity_filter = all_severities
     filtered_df = df.copy()
     if severity_filter:
         filtered_df = filtered_df[filtered_df["Severity"].isin(severity_filter)]
@@ -148,4 +144,3 @@ def get_severity_color(severity: str) -> str:
         "low": "#6C757D",
     }
     return colors.get(severity, "#6C757D")
-
