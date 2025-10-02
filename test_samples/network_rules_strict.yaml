@@ -1,0 +1,46 @@
+# Strict Network Rules Configuration
+# Use this for high-security environments
+
+network:
+  # Allowed domains - very restrictive list
+  allow_domains:
+    - "api.company.com"
+    - "secure.internal.corp"
+    - "*.trusted-cdn.net"
+    - "localhost"
+    - "127.0.0.1"
+
+  # Blocked domains - explicit deny list
+  block_domains:
+    - "*.suspicious-site.com"
+    - "malware.example.org"
+    - "phishing.bad-domain.net"
+
+  # Network protocols
+  allow_protocols:
+    - "https"
+
+  block_protocols:
+    - "http"
+    - "ftp"
+    - "telnet"
+
+  # Port restrictions
+  allowed_ports:
+    - 443  # HTTPS
+    - 22   # SSH (if needed)
+    - 3306 # MySQL (internal)
+
+  blocked_ports:
+    - 80   # HTTP
+    - 23   # Telnet
+    - 21   # FTP
+
+  # IP ranges
+  allow_ip_ranges:
+    - "10.0.0.0/8"      # Internal network
+    - "192.168.0.0/16"  # Private network
+    - "172.16.0.0/12"   # Private network
+
+  block_ip_ranges:
+    - "0.0.0.0/0"       # Block all by default (unless in allow list)

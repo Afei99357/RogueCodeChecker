@@ -2,15 +2,9 @@
 
 Minimal, extensible scanner for "rogue code" patterns in AI-generated snippets.
 
-## Quickstart
+## Quickstart (OSS-only)
 ```bash
-# Built-in rules
-python -m roguecheck scan --path . --format md --fail-on high --engine builtin
-
-# Open-source engine (Semgrep)
-python -m roguecheck scan --path . --format md --engine oss --semgrep-config auto
-
-# OSS-only CLI (Semgrep, detect-secrets, sqlfluff)
+# Run all OSS tools (Semgrep, detect-secrets, sqlfluff)
 python -m osscheck scan --path . --format md \
   --semgrep-config semgrep_rules \
   --tools semgrep,detect-secrets,sqlfluff
@@ -18,20 +12,15 @@ python -m osscheck scan --path . --format md \
 
 ### Options
 
-* `--policy policy.yaml` — organization policy knobs.
-* `--allowlists allowlists.yaml` — domain and path allowlists.
 * `--format md|json|sarif` — output type.
 * `--fail-on low|medium|high|critical` — exit non-zero at/above threshold.
-* `--engine builtin|oss` — choose built-in rules or OSS tools.
-* `--semgrep-config <value>` — Semgrep config (when `--engine=oss`).
+* `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff).
+* `--semgrep-config <value>` — Semgrep config (path/URL/dir). You can pass multiple, comma-separated (e.g., `semgrep_rules,auto`).
 * `--paths-from <file>` — scan only files listed in a text file (one per line).
 
 ## Extending
 
-Drop a `.py` file in `roguecheck/plugins/` that exposes `get_rules() -> list[callable]`.
-Each rule is `fn(path: str, text: str, policy) -> Iterable[Finding]`.
-
-For richer Python checks, switch `ast` to `libcst` or `astroid` without changing the scanner contract.
+Add or modify Semgrep rules under `semgrep_rules/` or pass your own rule sets via `--semgrep-config`.
 
 ## OSS Engine Notes
 

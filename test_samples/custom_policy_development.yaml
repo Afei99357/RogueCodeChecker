@@ -1,0 +1,112 @@
+# Development Custom Policy Configuration
+# More lenient rules for development environments
+
+# Security rule severity levels (more relaxed)
+severity_levels:
+  code_injection: "critical"     # Still critical
+  secret_exposure: "high"        # Lowered from critical
+  unsafe_operations: "medium"    # Lowered from high
+  network_security: "low"        # Much more lenient
+  file_security: "low"           # More lenient
+  code_quality: "low"
+
+# Python-specific rules
+python:
+  # Code execution rules (still strict)
+  dangerous_functions:
+    severity: "critical"
+    patterns:
+      - "eval("
+      - "exec("
+
+  # Import restrictions (more lenient)
+  restricted_imports:
+    severity: "low"  # Just warn, don't fail
+    modules:
+      - "os"         # Allow for development
+      - "subprocess" # Allow for scripts
+      - "sys"        # Allow for development
+
+  # SQL injection (still important)
+  sql_injection:
+    severity: "high"
+    patterns:
+      - "f\"SELECT"
+      - "f\"INSERT"
+      - "f\"UPDATE"
+      - "f\"DELETE"
+
+  # Secret detection (warn but don't fail)
+  hardcoded_secrets:
+    severity: "medium"  # Lowered for development
+    patterns:
+      - "password\\s*=\\s*['\"]"
+      - "api_key\\s*=\\s*['\"]"
+      - "secret\\s*=\\s*['\"]"
+
+# SQL-specific rules
+sql:
+  dangerous_operations:
+    severity: "high"  # Still important
+    patterns:
+      - "DROP DATABASE"
+      - "DROP TABLE"
+
+  permission_issues:
+    severity: "low"   # More lenient for dev databases
+    patterns:
+      - "GRANT ALL"
+      - "WITH GRANT OPTION"
+
+# Bash-specific rules
+bash:
+  dangerous_commands:
+    severity: "high"  # Still important
+    patterns:
+      - "rm -rf /"
+      - "sudo rm"
+
+  network_operations:
+    severity: "low"   # Very lenient for development
+    patterns:
+      - "curl"
+      - "wget"
+
+# File operation rules (relaxed)
+file_operations:
+  path_traversal:
+    severity: "medium"
+    patterns:
+      - "../"
+      - "..\\\\."
+
+  sensitive_files:
+    severity: "medium"  # Warn but don't fail
+    patterns:
+      - "/etc/passwd"
+      - ".ssh/"
+
+# Databricks-specific rules
+databricks:
+  udf_performance:
+    severity: "low"     # Just warn in development
+    description: "Detect I/O operations in UDFs"
+
+  secret_management:
+    severity: "medium"  # Important but not critical in dev
+    description: "Ensure proper use of dbutils.secrets"
+
+# Thresholds for development
+thresholds:
+  development:
+    fail_on: "critical"  # Only fail on critical issues
+    max_critical: 5      # Allow some critical issues
+    max_high: 20         # Allow many high issues
+    max_medium: 50       # Allow lots of medium issues
+
+# Development-specific allowances
+development_allowances:
+  allow_test_secrets: true
+  allow_debug_prints: true
+  allow_dev_imports: true
+  allow_localhost_connections: true

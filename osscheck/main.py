@@ -3,19 +3,18 @@ import sys
 
 from roguecheck.models import Finding
 from roguecheck.policy import Policy
-from roguecheck.scanner import SEV_ORDER, Scanner
+from roguecheck.report import SEV_ORDER, to_markdown, to_json, to_sarif
 from roguecheck.oss_semgrep import scan_with_semgrep
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
 
 
 def _render(findings: list[Finding], fmt: str) -> str:
-    # Reuse RogueCheck formatters for consistency
     if fmt == "md":
-        return Scanner.to_markdown(findings)
+        return to_markdown(findings)
     if fmt == "json":
-        return Scanner.to_json(findings)
-    return Scanner.to_sarif(findings)
+        return to_json(findings)
+    return to_sarif(findings)
 
 
 def main(argv=None):

@@ -5,20 +5,12 @@ Handles file processing, temporary storage, and data conversion
 
 import os
 import tempfile
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 from roguecheck.models import Finding
 from roguecheck.policy import Policy
-
-# Import from the core roguecheck package
-from roguecheck.scanner import Scanner
-try:
-    from roguecheck.oss_semgrep import scan_with_semgrep
-except Exception:
-    scan_with_semgrep = None  # type: ignore
 
 
 class ScannerService:
@@ -55,22 +47,14 @@ class ScannerService:
 
                 # Initialize policy
                 policy = self._load_policy()
+                tools = self.config.get(
+                    "oss_tools", ["semgrep", "detect-secrets", "sqlfluff"]
+                )
+                from roguecheck.oss_runner import run_oss_tools
 
-                # Choose engine
-                engine = str(self.config.get("engine", "builtin"))
-                if engine == "oss":
-                    tools = self.config.get(
-                        "oss_tools", ["semgrep", "detect-secrets", "sqlfluff"]
-                    )
-                    from roguecheck.oss_runner import run_oss_tools
-
-                    all_findings = run_oss_tools(
-                        root=temp_dir, policy=policy, tools=list(tools), semgrep_config="semgrep_rules"
-                    )
-                else:
-                    # Fallback to built-in engine
-                    scanner = Scanner(temp_dir, policy)
-                    all_findings = scanner.scan()
+                all_findings = run_oss_tools(
+                    root=temp_dir, policy=policy, tools=list(tools), semgrep_config="semgrep_rules"
+                )
 
                 # Group findings by file
                 for finding in all_findings:

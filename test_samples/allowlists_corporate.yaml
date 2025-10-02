@@ -1,0 +1,152 @@
+# Corporate Allowlists Configuration
+# Trusted domains and patterns for corporate environment
+
+# Trusted domains that are allowed for network calls
+domains:
+  # Internal corporate domains
+  internal:
+    - "*.company.com"
+    - "*.corp.internal"
+    - "api.enterprise.local"
+    - "secure.intranet.corp"
+
+  # Approved cloud services
+  cloud_services:
+    - "*.amazonaws.com"
+    - "*.azure.com"
+    - "*.googleapis.com"
+    - "*.microsoft.com"
+    - "*.office365.com"
+
+  # Development and CI/CD services
+  development:
+    - "*.github.com"
+    - "api.github.com"
+    - "*.gitlab.com"
+    - "registry.npmjs.org"
+    - "pypi.org"
+    - "*.pypi.org"
+    - "registry.hub.docker.com"
+
+  # Monitoring and analytics
+  monitoring:
+    - "*.datadog.com"
+    - "*.newrelic.com"
+    - "*.splunk.com"
+    - "analytics.company.com"
+
+  # Communication services
+  communication:
+    - "*.slack.com"
+    - "hooks.slack.com"
+    - "*.teams.microsoft.com"
+
+# File paths that are allowed for access
+file_paths:
+  # Approved directories
+  allowed_directories:
+    - "/app/data/"
+    - "/tmp/uploads/"
+    - "/var/log/application/"
+    - "/opt/company/configs/"
+
+  # Approved file patterns
+  allowed_patterns:
+    - "*.json"
+    - "*.yaml"
+    - "*.yml"
+    - "*.txt"
+    - "*.csv"
+    - "config_*.ini"
+
+  # Blocked sensitive paths (explicit deny)
+  blocked_paths:
+    - "/etc/passwd"
+    - "/etc/shadow"
+    - "/root/"
+    - "/.ssh/"
+    - "/var/lib/mysql/"
+
+# Database connections
+databases:
+  # Approved database servers
+  allowed_hosts:
+    - "db.company.com"
+    - "data-warehouse.corp"
+    - "analytics.internal"
+    - "localhost"  # For development
+
+  # Approved database names
+  allowed_databases:
+    - "company_prod"
+    - "company_staging"
+    - "analytics_db"
+    - "reporting_db"
+
+# API endpoints
+api_endpoints:
+  # Internal APIs
+  internal_apis:
+    - "https://api.company.com/v1/*"
+    - "https://internal.corp/api/*"
+    - "https://services.company.com/*"
+
+  # External approved APIs
+  external_apis:
+    - "https://api.stripe.com/*"
+    - "https://api.sendgrid.com/*"
+    - "https://graph.microsoft.com/*"
+    - "https://api.github.com/*"
+
+# IP address ranges
+ip_ranges:
+  # Corporate network ranges
+  corporate:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+
+  # Cloud provider ranges (examples)
+  cloud_providers:
+    - "52.0.0.0/8"    # AWS range (example)
+    - "13.0.0.0/8"    # Azure range (example)
+
+# Port allowlists
+ports:
+  # Standard web ports
+  web:
+    - 80
+    - 443
+    - 8080
+    - 8443
+
+  # Database ports
+  database:
+    - 3306  # MySQL
+    - 5432  # PostgreSQL
+    - 1433  # SQL Server
+    - 27017 # MongoDB
+
+  # Development ports
+  development:
+    - 3000  # React dev
+    - 8000  # Django dev
+    - 8501  # Streamlit
+    - 5000  # Flask dev
+
+# Environment-specific settings
+environments:
+  production:
+    strict_mode: true
+    allow_localhost: false
+    require_https: true
+
+  staging:
+    strict_mode: true
+    allow_localhost: true
+    require_https: true
+
+  development:
+    strict_mode: false
+    allow_localhost: true
+    require_https: false
