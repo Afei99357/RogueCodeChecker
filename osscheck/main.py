@@ -1,9 +1,9 @@
 import argparse
 import sys
 
-from roguecheck.models import Finding
-from roguecheck.policy import Policy
-from roguecheck.report import SEV_ORDER, to_markdown, to_json, to_sarif
+from core.models import Finding
+from core.policy import Policy
+from core.report import SEV_ORDER, to_markdown, to_json, to_sarif
 from roguecheck.oss_semgrep import scan_with_semgrep
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
@@ -56,7 +56,7 @@ def main(argv=None):
                 return 2
 
         selected = [t.strip() for t in str(args.tools).split(",") if t.strip()]
-        from roguecheck.oss_runner import run_oss_tools
+        from core.oss_runner import run_oss_tools
 
         findings = run_oss_tools(
             root=args.path,

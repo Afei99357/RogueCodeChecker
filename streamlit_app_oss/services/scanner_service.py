@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from roguecheck.models import Finding
-from roguecheck.policy import Policy
-from roguecheck.oss_runner import run_oss_tools
+from core.models import Finding
+from core.policy import Policy
+from core.oss_runner import run_oss_tools
 
 
 class ScannerService:
@@ -131,4 +131,3 @@ class ScannerService:
             },
             "files_scanned": [],
         }
-
