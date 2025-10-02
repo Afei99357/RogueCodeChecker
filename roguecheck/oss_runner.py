@@ -15,6 +15,9 @@ def run_oss_tools(
     semgrep_config: str = "auto",
     files: Optional[List[str]] = None,
 ) -> List[Finding]:
+    # Normalize files: if a single-file path was provided as root, treat it as explicit list
+    if files is None and os.path.isfile(root):
+        files = [os.path.abspath(root)]
     targets: List[str] = []
     if files:
         targets = [os.path.abspath(f) for f in files]
