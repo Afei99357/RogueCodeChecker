@@ -64,7 +64,14 @@ def scan_with_semgrep(
     if not configs:
         configs = ["auto"]
     for cfg in configs:
-        cmd.append(f"--config={cfg}")
+        # If cfg is a local path (dir or file), resolve to absolute from original CWD
+        cfg_path = cfg
+        try:
+            if os.path.isdir(os.path.join(_ORIG_CWD, cfg)) or os.path.isfile(os.path.join(_ORIG_CWD, cfg)):
+                cfg_path = os.path.abspath(os.path.join(_ORIG_CWD, cfg))
+        except Exception:
+            cfg_path = cfg
+        cmd.append(f"--config={cfg_path}")
     if files:
         # Normalize to absolute paths to avoid cwd issues
         abs_files = [f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files]
@@ -93,19 +100,7 @@ def scan_with_semgrep(
         )
         return findings
 
-    if proc.returncode not in (0, 1):  # 0=ok/no findings, 1=findings, others=errors
-        findings.append(
-            Finding(
-                rule_id="OSS_ENGINE_SEMGREP_NONZERO",
-                severity="low",
-                message=f"Semgrep exited with code {proc.returncode}: {proc.stderr.strip()[:200]}",
-                path=relpath(root, os.getcwd()),
-                position=Position(1, 1),
-                snippet=None,
-                recommendation="Check Semgrep config or pass --semgrep-config pointing to valid rules.",
-            )
-        )
-        # still attempt to parse any output
+    # We'll parse output regardless; treat RC 7 (no targets) as non-fatal if no results
 
     try:
         data = json.loads(proc.stdout or "{}")
@@ -122,6 +117,23 @@ def scan_with_semgrep(
             )
         )
         return findings
+
+    # If Semgrep returned 7 (no targets) and no results, treat as no findings
+    if proc.returncode == 7 and not data.get("results"):
+        return findings
+
+    if proc.returncode not in (0, 1, 7):
+        findings.append(
+            Finding(
+                rule_id="OSS_ENGINE_SEMGREP_NONZERO",
+                severity="low",
+                message=f"Semgrep exited with code {proc.returncode}: {proc.stderr.strip()[:200]}",
+                path=relpath(root, os.getcwd()),
+                position=Position(1, 1),
+                snippet=None,
+                recommendation="Check Semgrep config or pass --semgrep-config pointing to valid rules.",
+            )
+        )
 
     for r in data.get("results", []) or []:
         path = r.get("path") or root
