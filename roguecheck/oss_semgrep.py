@@ -8,7 +8,13 @@ from .models import Finding, Position
 from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
-SEMGREP_BIN = shutil.which("semgrep")
+_ORIG_CWD = os.getcwd()
+
+def _which_abs(name: str) -> Optional[str]:
+    p = shutil.which(name)
+    if not p:
+        return None
+    return p if os.path.isabs(p) else os.path.abspath(os.path.join(_ORIG_CWD, p))
 
 
 def _map_severity(level: str) -> str:
@@ -36,7 +42,8 @@ def scan_with_semgrep(
       - The default `--config=auto` may fetch rules from the network depending on environment.
     """
     findings: List[Finding] = []
-    if SEMGREP_BIN is None:
+    semgrep_bin = _which_abs("semgrep")
+    if semgrep_bin is None:
         # Soft failure: return an informative low-sev finding
         findings.append(
             Finding(
@@ -51,7 +58,7 @@ def scan_with_semgrep(
         )
         return findings
 
-    cmd = [SEMGREP_BIN, "--json", "--quiet"]
+    cmd = [semgrep_bin, "--json", "--quiet"]
     # Support multiple configs separated by comma
     configs = [c.strip() for c in str(semgrep_config).split(",") if c.strip()]
     if not configs:
@@ -59,17 +66,17 @@ def scan_with_semgrep(
     for cfg in configs:
         cmd.append(f"--config={cfg}")
     if files:
-        # Pass explicit files (relative or absolute). Semgrep supports multiple target paths.
-        cmd.extend(files)
+        # Normalize to absolute paths to avoid cwd issues
+        abs_files = [f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files]
+        cmd.extend(abs_files)
     else:
-        cmd.append(root)
+        cmd.append(os.path.abspath(root))
     try:
         proc = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=root if os.path.isdir(root) else os.path.dirname(os.path.abspath(root)) or None,
             timeout=300,
         )
     except Exception as e:

@@ -8,7 +8,13 @@ from .models import Finding, Position
 from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
-DS_BIN = shutil.which("detect-secrets")
+_ORIG_CWD = os.getcwd()
+
+def _which_abs(name: str) -> Optional[str]:
+    p = shutil.which(name)
+    if not p:
+        return None
+    return p if os.path.isabs(p) else os.path.abspath(os.path.join(_ORIG_CWD, p))
 
 
 def _severity_for_secret(secret_type: str) -> str:
@@ -22,7 +28,8 @@ def scan_with_detect_secrets(
     root: str, policy: Policy, files: Optional[List[str]] = None
 ) -> List[Finding]:
     findings: List[Finding] = []
-    if DS_BIN is None:
+    ds_bin = _which_abs("detect-secrets")
+    if ds_bin is None:
         findings.append(
             Finding(
                 rule_id="OSS_ENGINE_MISSING_DETECT_SECRETS",
@@ -38,18 +45,17 @@ def scan_with_detect_secrets(
 
     targets: List[str] = []
     if files:
-        targets.extend(files)
+        targets.extend([f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files])
     else:
-        targets.append(root)
+        targets.append(os.path.abspath(root))
 
-    cmd = [DS_BIN, "scan", "--all-files"] + targets
+    cmd = [ds_bin, "scan", "--all-files"] + targets
     try:
         proc = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=root if os.path.isdir(root) else os.path.dirname(os.path.abspath(root)) or None,
             timeout=300,
         )
     except Exception as e:
@@ -108,4 +114,3 @@ def scan_with_detect_secrets(
             )
 
     return findings
-

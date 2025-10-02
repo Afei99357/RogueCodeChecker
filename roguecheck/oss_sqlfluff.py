@@ -8,14 +8,21 @@ from .models import Finding, Position
 from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
-SQLFLUFF_BIN = shutil.which("sqlfluff")
+_ORIG_CWD = os.getcwd()
+
+def _which_abs(name: str) -> Optional[str]:
+    p = shutil.which(name)
+    if not p:
+        return None
+    return p if os.path.isabs(p) else os.path.abspath(os.path.join(_ORIG_CWD, p))
 
 
 def scan_with_sqlfluff(
     root: str, policy: Policy, files: Optional[List[str]] = None
 ) -> List[Finding]:
     findings: List[Finding] = []
-    if SQLFLUFF_BIN is None:
+    sqlfluff_bin = _which_abs("sqlfluff")
+    if sqlfluff_bin is None:
         findings.append(
             Finding(
                 rule_id="OSS_ENGINE_MISSING_SQLFLUFF",
@@ -32,20 +39,23 @@ def scan_with_sqlfluff(
     targets: List[str] = []
     if files:
         # Filter to SQL-like files to avoid noise
-        targets.extend([f for f in files if os.path.splitext(f)[1].lower() in {'.sql'}])
+        targets.extend([
+            (f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)))
+            for f in files
+            if os.path.splitext(f)[1].lower() in {".sql"}
+        ])
         if not targets:
             return []
     else:
-        targets.append(root)
+        targets.append(os.path.abspath(root))
 
-    cmd = [SQLFLUFF_BIN, "lint", "--format", "json"] + targets
+    cmd = [sqlfluff_bin, "lint", "--format", "json"] + targets
     try:
         proc = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=root if os.path.isdir(root) else os.path.dirname(os.path.abspath(root)) or None,
             timeout=300,
         )
     except Exception as e:
@@ -110,4 +120,3 @@ def scan_with_sqlfluff(
             )
 
     return findings
-
