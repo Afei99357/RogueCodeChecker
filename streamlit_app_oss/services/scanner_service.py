@@ -35,9 +35,42 @@ class ScannerService:
                 tools = self.config.get(
                     "oss_tools", ["semgrep", "detect-secrets", "sqlfluff", "shellcheck"]
                 )
+                # Base packs from UI (or defaults)
                 semgrep_packs = str(
-                    self.config.get("semgrep_packs", "p/security-audit,p/python,p/bash,p/javascript,p/sql")
+                    self.config.get(
+                        "semgrep_packs", "p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql"
+                    )
                 )
+                # Auto-augment packs to match uploaded file types
+                ext_to_pack = {
+                    ".py": "p/python",
+                    ".sh": "p/bash",
+                    ".bash": "p/bash",
+                    ".js": "p/javascript",
+                    ".ts": "p/typescript",
+                    ".sql": "p/sql",
+                    ".java": "p/java",
+                    ".go": "p/go",
+                    ".rb": "p/ruby",
+                    ".php": "p/php",
+                    ".cs": "p/csharp",
+                    ".tf": "p/terraform",
+                    ".yaml": "p/yaml",
+                    ".yml": "p/yaml",
+                }
+                needed = {"p/security-audit"}
+                for p in file_paths:
+                    _, ext = os.path.splitext(p.lower())
+                    if ext in ext_to_pack:
+                        needed.add(ext_to_pack[ext])
+                    # Dockerfile detection (no extension)
+                    base = os.path.basename(p).lower()
+                    if base == "dockerfile":
+                        needed.add("p/dockerfile")
+                # Merge with user-provided packs
+                current = {s.strip() for s in semgrep_packs.split(",") if s.strip()}
+                merged = current.union(needed)
+                semgrep_packs = ",".join(sorted(merged))
                 # Always enable strict SQL checks by default
                 tools = list(tools) + ["sql-strict"]
                 all_findings = run_oss_tools(

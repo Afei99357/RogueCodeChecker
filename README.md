@@ -6,7 +6,7 @@ Minimal, extensible scanner for "rogue code" patterns in AI-generated snippets.
 ```bash
 # Run all OSS tools (Semgrep, detect-secrets, sqlfluff, shellcheck)
 python -m osscheck scan --path . --format md \
-  --semgrep-config p/security-audit,p/python,p/bash,p/javascript,p/sql \
+  --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict
 ```
 
@@ -15,7 +15,7 @@ python -m osscheck scan --path . --format md \
 * `--format md|json|sarif` — output type.
 * `--fail-on low|medium|high|critical` — exit non-zero at/above threshold.
 * `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict).
-* `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/python,p/bash,p/javascript,p/sql`).
+* `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql`).
 * `--no-sql-strict` — disable strict raw SQL checks (enabled by default).
 * `--paths-from <file>` — scan only files listed in a text file (one per line).
 * `--per-file-out-dir <dir>` — additionally write one report per file to this directory (e.g., `name_report.md`).

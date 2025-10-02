@@ -75,7 +75,7 @@ def render_config_panel() -> Dict:
 
     # Semgrep Packs
     st.subheader("🧩 Semgrep Packs")
-    packs_default = "p/security-audit,p/python,p/bash,p/javascript,p/sql"
+    packs_default = "p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql"
     config["semgrep_packs"] = st.text_input(
         "Packs (comma-separated)",
         value=packs_default,

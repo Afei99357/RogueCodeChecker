@@ -29,8 +29,8 @@ def main(argv=None):
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
-        default="p/security-audit,p/python,p/bash,p/javascript,p/sql",
-        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, p/bash, p/javascript, p/sql, or 'auto')",
+        default="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql",
+        help="Semgrep config (comma-separated: registry packs like p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql, or 'auto')",
     )
     sp.add_argument(
         "--tools",
