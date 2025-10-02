@@ -5,6 +5,7 @@ from typing import List, Optional
 from .models import Finding
 from .policy import Policy
 from .oss_nb_preprocess import preprocess_notebooks
+from .sniff import guess_extensions, extract_embedded_snippets
 
 
 def run_oss_tools(
@@ -36,13 +37,55 @@ def run_oss_tools(
             discover_list = [p for p in targets if p.endswith((".ipynb", ".py"))]
 
         generated = preprocess_notebooks(discover_list, tmp)
+        # Generic snippet extraction for all files (SQL / Shell inside other hosts)
+        for p in (files or []):
+            try:
+                with open(p if os.path.isabs(p) else os.path.join(root, p), "r", encoding="utf-8", errors="ignore") as fh:
+                    txt = fh.read()
+            except Exception:
+                continue
+            for ext, snippet in extract_embedded_snippets(txt):
+                if not snippet:
+                    continue
+                base = os.path.basename(p)
+                out_path = os.path.join(tmp, f"{base}__embedded{len(generated):03d}{ext}")
+                try:
+                    with open(out_path, "w", encoding="utf-8") as oh:
+                        oh.write(snippet)
+                    generated.append(out_path)
+                except Exception:
+                    pass
+        # If files have unknown extension but look like a language, create a typed copy for Semgrep
+        typed_copies: List[str] = []
+        for p in (files or []):
+            abs_p = p if os.path.isabs(p) else os.path.join(root, p)
+            _, ext = os.path.splitext(abs_p.lower())
+            if ext:
+                continue
+            try:
+                with open(abs_p, "r", encoding="utf-8", errors="ignore") as fh:
+                    txt = fh.read()
+            except Exception:
+                continue
+            exts = guess_extensions(txt, abs_p)
+            if not exts:
+                continue
+            # Use the first guess
+            new_path = os.path.join(tmp, os.path.basename(abs_p) + exts[0])
+            try:
+                with open(new_path, "w", encoding="utf-8") as oh:
+                    oh.write(txt)
+                typed_copies.append(new_path)
+            except Exception:
+                pass
         combined_files: Optional[List[str]] = None
         # Prefer explicit file list to keep Semgrep scope tight; otherwise, tools can scan root
-        if files or generated:
+        if files or generated or typed_copies:
             combined_files = []
             if files:
                 combined_files.extend(files)
             combined_files.extend(generated)
+            combined_files.extend(typed_copies)
 
         # Run selected tools
         if "semgrep" in tools:

@@ -16,7 +16,23 @@ def render_file_upload() -> List:
         List of uploaded files (Streamlit UploadedFile objects)
     """
 
-    SUPPORTED_EXTENSIONS = ["py", "sql", "sh", "bash", "ipynb", "js", "ts"]
+    SUPPORTED_EXTENSIONS = [
+        "py",
+        "sql",
+        "sh",
+        "bash",
+        "ipynb",
+        "js",
+        "ts",
+        "java",
+        "go",
+        "rb",
+        "php",
+        "cs",
+        "tf",
+        "yaml",
+        "yml",
+    ]
     MAX_FILE_SIZE_MB = 10
 
     uploaded_files = st.file_uploader(
@@ -39,7 +55,12 @@ def render_file_upload() -> List:
             if len(file.getvalue()) == 0:
                 invalid_files.append(f"**{file.name}**: Empty file")
                 continue
-            valid_files.append(file)
+            # Special-case Dockerfile (no extension)
+            name_lower = file.name.lower()
+            if name_lower == "dockerfile":
+                valid_files.append(file)
+            else:
+                valid_files.append(file)
 
         if invalid_files:
             st.warning("⚠️ Some files were skipped:")
@@ -84,6 +105,9 @@ def render_file_upload() -> List:
         - **Bash** (.sh)
         - **Notebooks** (.ipynb)
         - **JavaScript/TypeScript** (.js, .ts)
+        - **Java/Go/Ruby/PHP/C#** (.java, .go, .rb, .php, .cs)
+        - **Terraform/YAML** (.tf, .yaml, .yml)
+        - **Dockerfile** (no extension; named "Dockerfile")
         """
         )
         return []
