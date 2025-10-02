@@ -4,24 +4,25 @@ Minimal, extensible scanner for "rogue code" patterns in AI-generated snippets.
 
 ## Quickstart (OSS-only)
 ```bash
-# Run all OSS tools (Semgrep, detect-secrets, sqlfluff)
+# Run all OSS tools (Semgrep, detect-secrets, sqlfluff, shellcheck)
 python -m osscheck scan --path . --format md \
-  --semgrep-config p/security-audit,p/python \
-  --tools semgrep,detect-secrets,sqlfluff
+  --semgrep-config p/security-audit,p/python,p/bash,p/javascript \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck
 ```
 
 ### Options
 
 * `--format md|json|sarif` — output type.
 * `--fail-on low|medium|high|critical` — exit non-zero at/above threshold.
-* `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff).
-* `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/python`).
+* `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff,shellcheck).
+* `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/python,p/bash,p/javascript`).
+* `--sql-strict` — enable strict raw SQL checks (GRANT ALL, DELETE without WHERE, DROP TABLE).
 * `--paths-from <file>` — scan only files listed in a text file (one per line).
 * `--per-file-out-dir <dir>` — additionally write one report per file to this directory (e.g., `name_report.md`).
 
 ## Extending
 
-Use upstream Semgrep rule packs via `--semgrep-config` (e.g., `p/security-audit,p/python`).
+Use upstream Semgrep rule packs via `--semgrep-config` (e.g., `p/security-audit,p/python,p/bash,p/javascript`).
 
 ## OSS Engine Notes
 

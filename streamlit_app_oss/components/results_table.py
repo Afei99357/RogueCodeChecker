@@ -104,7 +104,7 @@ def render_findings_table(findings: List, scanner_service) -> None:
                 )
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
-        col1, col2 = st.columns([1, 1])
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             csv = filtered_df.to_csv(index=False)
             st.download_button(
@@ -117,6 +117,23 @@ def render_findings_table(findings: List, scanner_service) -> None:
             if st.button("👁️ Show Details"):
                 st.session_state.show_details = not st.session_state.get(
                     "show_details", False
+                )
+        with col3:
+            # Per-file CSVs as ZIP
+            import io, zipfile
+            if st.button("📦 Download per-file CSVs"):
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    for file_name in sorted(filtered_df["File"].unique()):
+                        sub = filtered_df[filtered_df["File"] == file_name]
+                        csv_bytes = sub.to_csv(index=False).encode("utf-8")
+                        safe_name = file_name.replace("/", "_").replace("\\", "_")
+                        zf.writestr(f"{safe_name}_report.csv", csv_bytes)
+                st.download_button(
+                    label="⬇️ Save ZIP",
+                    data=buf.getvalue(),
+                    file_name="per_file_reports.zip",
+                    mime="application/zip",
                 )
         if st.session_state.get("show_details", False):
             st.subheader("📋 Detailed View")

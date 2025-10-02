@@ -71,6 +71,12 @@ def run_oss_tools(
             all_findings.extend(
                 scan_with_shellcheck(root=root, policy=policy, files=combined_files)
             )
+        if "sql-strict" in tools:
+            from .oss_sql_strict import scan_strict_sql
+
+            all_findings.extend(
+                scan_strict_sql(root=root, policy=policy, files=combined_files)
+            )
         if "sqlcheck" in tools:
             from .oss_sqlcheck import scan_with_sqlcheck
 

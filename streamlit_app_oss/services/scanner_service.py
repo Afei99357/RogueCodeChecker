@@ -38,6 +38,8 @@ class ScannerService:
                 semgrep_packs = str(
                     self.config.get("semgrep_packs", "p/security-audit,p/python,p/bash")
                 )
+                if self.config.get("sql_strict"):
+                    tools = list(tools) + ["sql-strict"]
                 all_findings = run_oss_tools(
                     root=temp_dir,
                     policy=policy,

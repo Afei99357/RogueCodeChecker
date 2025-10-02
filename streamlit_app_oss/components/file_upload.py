@@ -16,7 +16,7 @@ def render_file_upload() -> List:
         List of uploaded files (Streamlit UploadedFile objects)
     """
 
-    SUPPORTED_EXTENSIONS = ["py", "sql", "sh", "bash", "ipynb"]
+    SUPPORTED_EXTENSIONS = ["py", "sql", "sh", "bash", "ipynb", "js", "ts"]
     MAX_FILE_SIZE_MB = 10
 
     uploaded_files = st.file_uploader(
@@ -83,7 +83,7 @@ def render_file_upload() -> List:
         - **SQL** (.sql)
         - **Bash** (.sh)
         - **Notebooks** (.ipynb)
+        - **JavaScript/TypeScript** (.js, .ts)
         """
         )
         return []
-
