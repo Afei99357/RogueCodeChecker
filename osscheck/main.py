@@ -29,12 +29,12 @@ def main(argv=None):
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
-        default="p/security-audit,p/python",
-        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, or 'auto')",
+        default="p/security-audit,p/python,p/bash",
+        help="Semgrep config (comma-separated: registry packs like p/python, p/security-audit, p/bash, or 'auto')",
     )
     sp.add_argument(
         "--tools",
-        default="semgrep,detect-secrets,sqlfluff",
+        default="semgrep,detect-secrets,sqlfluff,shellcheck",
         help="Comma-separated list of tools to run",
     )
     sp.add_argument("--paths-from", help="File listing files to scan (one per line)")

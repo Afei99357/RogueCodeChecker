@@ -65,6 +65,17 @@ def run_oss_tools(
             all_findings.extend(
                 scan_with_sqlfluff(root=root, policy=policy, files=combined_files)
             )
+        if "shellcheck" in tools:
+            from .oss_shellcheck import scan_with_shellcheck
+
+            all_findings.extend(
+                scan_with_shellcheck(root=root, policy=policy, files=combined_files)
+            )
+        if "sqlcheck" in tools:
+            from .oss_sqlcheck import scan_with_sqlcheck
+
+            all_findings.extend(
+                scan_with_sqlcheck(root=root, policy=policy, files=combined_files)
+            )
 
     return all_findings
-

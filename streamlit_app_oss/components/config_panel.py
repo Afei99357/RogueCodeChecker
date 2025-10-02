@@ -73,6 +73,17 @@ def render_config_panel() -> Dict:
 
     st.divider()
 
+    # Semgrep Packs
+    st.subheader("🧩 Semgrep Packs")
+    packs_default = "p/security-audit,p/python,p/bash"
+    config["semgrep_packs"] = st.text_input(
+        "Packs (comma-separated)",
+        value=packs_default,
+        help="Registry packs like p/python,p/security-audit,p/bash or 'auto'",
+    )
+
+    st.divider()
+
     # Display current configuration summary
     st.subheader("📊 Current Settings")
 
@@ -82,6 +93,7 @@ def render_config_panel() -> Dict:
     )
     settings_summary.append(f"• **File limit:** {config['max_file_size_mb']} MB")
     settings_summary.append(f"• **Engine:** {config['engine']}")
+    settings_summary.append(f"• **Semgrep packs:** {config['semgrep_packs']}")
 
     if config["custom_domains"]:
         settings_summary.append(

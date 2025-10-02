@@ -33,13 +33,16 @@ class ScannerService:
                 file_paths = self._save_uploaded_files(uploaded_files, temp_dir)
                 policy = self._load_policy()
                 tools = self.config.get(
-                    "oss_tools", ["semgrep", "detect-secrets", "sqlfluff"]
+                    "oss_tools", ["semgrep", "detect-secrets", "sqlfluff", "shellcheck"]
+                )
+                semgrep_packs = str(
+                    self.config.get("semgrep_packs", "p/security-audit,p/python,p/bash")
                 )
                 all_findings = run_oss_tools(
                     root=temp_dir,
                     policy=policy,
                     tools=list(tools),
-                    semgrep_config="p/security-audit,p/python",
+                    semgrep_config=semgrep_packs,
                 )
                 for finding in all_findings:
                     filename = finding.path
