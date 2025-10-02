@@ -17,6 +17,7 @@ python -m osscheck scan --path . --format md \
 * `--tools` — comma-separated tools to run (default: semgrep,detect-secrets,sqlfluff).
 * `--semgrep-config <value>` — Semgrep config (registry packs or 'auto'). You can pass multiple (e.g., `p/security-audit,p/python`).
 * `--paths-from <file>` — scan only files listed in a text file (one per line).
+* `--per-file-out-dir <dir>` — additionally write one report per file to this directory (e.g., `name_report.md`).
 
 ## Extending
 

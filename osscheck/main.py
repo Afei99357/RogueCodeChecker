@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 
 from core.models import Finding
@@ -38,6 +39,10 @@ def main(argv=None):
     )
     sp.add_argument("--paths-from", help="File listing files to scan (one per line)")
     sp.add_argument(
+        "--per-file-out-dir",
+        help="Directory to write one report per input file (e.g., name_report.md)",
+    )
+    sp.add_argument(
         "--fail-on",
         choices=["low", "medium", "high", "critical"],
         default="high",
@@ -76,6 +81,27 @@ def main(argv=None):
                 f.write(out)
         else:
             print(out)
+
+        # Optional per-file reports
+        if args.per_file_out_dir:
+            os.makedirs(args.per_file_out_dir, exist_ok=True)
+            # group findings by file path
+            by_file = {}
+            for f in findings:
+                by_file.setdefault(f.path, []).append(f)
+            ext = {"md": ".md", "json": ".json", "sarif": ".sarif"}[args.format]
+            written = []
+            for path, fs in by_file.items():
+                if not fs:
+                    continue
+                base = os.path.splitext(os.path.basename(path))[0]
+                out_path = os.path.join(args.per_file_out_dir, f"{base}_report{ext}")
+                content = _render(fs, args.format)
+                with open(out_path, "w", encoding="utf-8") as fh:
+                    fh.write(content)
+                written.append(out_path)
+            if written:
+                print(f"Wrote per-file reports: {len(written)} files", file=sys.stderr)
 
         worst = max([SEV_ORDER.get(f.severity, 0) for f in findings], default=0)
         if worst >= SEV_ORDER[args.fail_on]:
