@@ -15,6 +15,10 @@ from roguecheck.policy import Policy
 
 # Import from the core roguecheck package
 from roguecheck.scanner import Scanner
+try:
+    from roguecheck.oss_semgrep import scan_with_semgrep
+except Exception:
+    scan_with_semgrep = None  # type: ignore
 
 
 class ScannerService:
@@ -49,12 +53,24 @@ class ScannerService:
                 # Save uploaded files to temp directory
                 file_paths = self._save_uploaded_files(uploaded_files, temp_dir)
 
-                # Initialize scanner with policy
+                # Initialize policy
                 policy = self._load_policy()
-                scanner = Scanner(temp_dir, policy)
 
-                # Scan all files
-                all_findings = scanner.scan()
+                # Choose engine
+                engine = str(self.config.get("engine", "builtin"))
+                if engine == "oss":
+                    tools = self.config.get(
+                        "oss_tools", ["semgrep", "detect-secrets", "sqlfluff"]
+                    )
+                    from roguecheck.oss_runner import run_oss_tools
+
+                    all_findings = run_oss_tools(
+                        root=temp_dir, policy=policy, tools=list(tools), semgrep_config="semgrep_rules"
+                    )
+                else:
+                    # Fallback to built-in engine
+                    scanner = Scanner(temp_dir, policy)
+                    all_findings = scanner.scan()
 
                 # Group findings by file
                 for finding in all_findings:

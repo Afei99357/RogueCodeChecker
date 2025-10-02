@@ -3,6 +3,11 @@ import sys
 
 from .policy import Policy
 from .scanner import SEV_ORDER, Scanner
+try:
+    # Optional OSS engine (Semgrep). Imported lazily when selected.
+    from .oss_semgrep import scan_with_semgrep
+except Exception:
+    scan_with_semgrep = None  # type: ignore
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
 
@@ -19,6 +24,21 @@ def main(argv=None):
     sp.add_argument("--allowlists", default="allowlists.yaml", help="allowlists file")
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
+        "--engine",
+        choices=["builtin", "oss"],
+        default="builtin",
+        help="Select scanning engine: builtin rules or OSS tools (Semgrep)",
+    )
+    sp.add_argument(
+        "--semgrep-config",
+        default="auto",
+        help="Semgrep config (path/URL/registry), used when --engine=oss",
+    )
+    sp.add_argument(
+        "--paths-from",
+        help="Path to a text file listing files to scan (one per line)",
+    )
+    sp.add_argument(
         "--fail-on", choices=["low", "medium", "high", "critical"], default="high"
     )
     sp.add_argument("--out", help="write report to file instead of stdout")
@@ -27,8 +47,38 @@ def main(argv=None):
 
     if args.cmd == "scan":
         pol = Policy.load(args.policy, args.allowlists)
-        sc = Scanner(args.path, pol)
-        findings = sc.scan()
+        # Optional file list
+        file_list = None
+        if args.paths_from:
+            try:
+                with open(args.paths_from, "r", encoding="utf-8") as fl:
+                    file_list = [
+                        ln.strip() for ln in fl.read().splitlines() if ln.strip()
+                    ]
+            except Exception as e:
+                print(f"Failed to read --paths-from: {e}", file=sys.stderr)
+                sys.exit(2)
+
+        if args.engine == "oss":
+            if scan_with_semgrep is None:
+                print(
+                    "[oss] Semgrep engine unavailable. Ensure dependencies are installed.",
+                    file=sys.stderr,
+                )
+                findings = []
+            else:
+                findings = scan_with_semgrep(
+                    root=args.path,
+                    policy=pol,
+                    semgrep_config=args.semgrep_config,
+                    files=file_list,
+                )
+        else:
+            sc = Scanner(args.path, pol)
+            if file_list:
+                findings = sc.scan_files(file_list)
+            else:
+                findings = sc.scan()
 
         if args.format == "md":
             out = Scanner.to_markdown(findings)

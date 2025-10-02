@@ -21,6 +21,14 @@ def render_config_panel() -> Dict:
     # Scanner Settings
     st.subheader("⚙️ Scanner Settings")
 
+    # Engine selection
+    config["engine"] = st.selectbox(
+        "Scanner Engine",
+        options=["builtin", "oss"],
+        index=0,
+        help="Use built-in rules or open-source tools (Semgrep).",
+    )
+
     # Severity threshold for highlighting
     config["fail_threshold"] = st.selectbox(
         "Priority Focus",
@@ -97,6 +105,7 @@ def render_config_panel() -> Dict:
         f"• **Focus:** {config['fail_threshold'].title()} priority and above"
     )
     settings_summary.append(f"• **File limit:** {config['max_file_size_mb']} MB")
+    settings_summary.append(f"• **Engine:** {config['engine']}")
 
     if config["custom_domains"]:
         settings_summary.append(

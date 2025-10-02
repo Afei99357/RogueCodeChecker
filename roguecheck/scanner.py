@@ -79,8 +79,14 @@ class Scanner:
         return paths
 
     def scan(self) -> List[Finding]:
+        return self.scan_files(self.discover())
+
+    def scan_files(self, files: List[str]) -> List[Finding]:
         findings: List[Finding] = []
-        for path in self.discover():
+        for path in files:
+            # Normalize path to absolute
+            if not os.path.isabs(path):
+                path = os.path.abspath(os.path.join(self.root, path))
             ext = os.path.splitext(path)[1].lower()
             text = read_text(path)
             if len(text.encode("utf-8", errors="ignore")) > self.max_bytes:
