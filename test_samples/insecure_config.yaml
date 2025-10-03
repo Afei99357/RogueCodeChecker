@@ -1,0 +1,5 @@
+# Insecure YAML config for testing
+api_key: "sk_live_51JXabcSECRET"
+password: "P@ssw0rd!"
+allow_http: true
+

