@@ -32,11 +32,14 @@ def run_oss_tools(
         # Preprocess notebooks to additional .py/.sql files
         # Discover notebooks when scanning a directory
         discover_list: List[str] = []
+        all_real_files: List[str] = []
         if files is None and os.path.isdir(root):
             for dirpath, _, filenames in os.walk(root):
                 for fn in filenames:
+                    full = os.path.join(dirpath, fn)
+                    all_real_files.append(full)
                     if fn.endswith((".ipynb", ".py")):
-                        discover_list.append(os.path.join(dirpath, fn))
+                        discover_list.append(full)
         else:
             discover_list = [p for p in targets if p.endswith((".ipynb", ".py"))]
 
@@ -44,7 +47,7 @@ def run_oss_tools(
         # Map of generated temp file -> (origin_abs_path, origin_start_line)
         origin_map: dict[str, tuple[str, int]] = {}
         # Generic snippet extraction for all files (SQL / Shell inside other hosts)
-        for p in (files or []):
+        for p in (files if files is not None else all_real_files):
             try:
                 with open(p if os.path.isabs(p) else os.path.join(root, p), "r", encoding="utf-8", errors="ignore") as fh:
                     txt = fh.read()
@@ -66,7 +69,7 @@ def run_oss_tools(
                     pass
         # If files have unknown extension but look like a language, create a typed copy for Semgrep
         typed_copies: List[str] = []
-        for p in (files or []):
+        for p in (files if files is not None else all_real_files):
             abs_p = p if os.path.isabs(p) else os.path.join(root, p)
             _, ext = os.path.splitext(abs_p.lower())
             if ext:
@@ -89,11 +92,13 @@ def run_oss_tools(
             except Exception:
                 pass
         combined_files: Optional[List[str]] = None
-        # Prefer explicit file list to keep Semgrep scope tight; otherwise, tools can scan root
+        # Prefer explicit file list to keep scope tight; include original files for directory scans
         if files or generated or typed_copies:
             combined_files = []
             if files:
                 combined_files.extend(files)
+            else:
+                combined_files.extend(all_real_files)
             combined_files.extend(generated)
             combined_files.extend(typed_copies)
 
@@ -127,9 +132,16 @@ def run_oss_tools(
         if "sql-strict" in tools:
             from .oss_sql_strict import scan_strict_sql
 
+            # Run on root to catch all real .sql files
             all_findings.extend(
-                scan_strict_sql(root=root, policy=policy, files=combined_files)
+                scan_strict_sql(root=root, policy=policy, files=None)
             )
+            # Additionally run on generated snippet files that are .sql and live outside root
+            gen_sql = [p for p in (generated or []) if p.lower().endswith(".sql")]
+            if gen_sql:
+                all_findings.extend(
+                    scan_strict_sql(root=root, policy=policy, files=gen_sql)
+                )
         if "sqlcheck" in tools:
             from .oss_sqlcheck import scan_with_sqlcheck
 
