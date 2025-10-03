@@ -22,6 +22,15 @@ def render_results(results: Dict[str, Any], scanner_service) -> None:
     diagnostics = results.get("diagnostics", [])
     if not has_issues:
         st.info("No code issues found in uploaded files.")
+        zip_bytes = _build_markdown_zip(
+            results.get("findings_by_file", {}), results.get("files_scanned", [])
+        )
+        st.download_button(
+            label="📦 Download per-file Markdown",
+            data=zip_bytes,
+            file_name="per_file_markdown_reports.zip",
+            mime="application/zip",
+        )
         if diagnostics:
             _render_diagnostics(diagnostics, scanner_service)
         return
