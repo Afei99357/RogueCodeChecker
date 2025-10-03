@@ -3,6 +3,7 @@ import tempfile
 from typing import List, Optional
 
 from .models import Finding
+from .utils import read_text, safe_snippet
 from .policy import Policy
 from .oss_nb_preprocess import preprocess_notebooks
 from .sniff import guess_extensions, extract_embedded_snippets
@@ -148,6 +149,12 @@ def run_oss_tools(
                         # Adjust line number relative to snippet start
                         if getattr(f, "position", None):
                             f.position.line = int(origin_start) + int(getattr(f.position, "line", 1)) - 1
+                            # Recompute snippet from origin file for accurate details view
+                            try:
+                                txt = read_text(origin_path)
+                                f.snippet = safe_snippet(txt, f.position.line)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
 

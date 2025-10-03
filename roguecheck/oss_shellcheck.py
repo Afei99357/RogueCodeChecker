@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from .models import Finding, Position
 from .policy import Policy
-from .utils import relpath
+from .utils import relpath, read_text, safe_snippet
 
 
 def _which_abs(name: str) -> Optional[str]:
@@ -108,6 +108,12 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
             level = item.get("level", "warning")
             message = item.get("message", "ShellCheck finding")
             line = int(item.get("line", 1) or 1)
+            # Best-effort code context
+            snippet = None
+            try:
+                snippet = safe_snippet(read_text(path), line)
+            except Exception:
+                snippet = None
             findings.append(
                 Finding(
                     rule_id=f"SHELLCHECK:SC{code}" if code else "SHELLCHECK",
@@ -115,7 +121,7 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
                     message=message,
                     path=relpath(path, root),
                     position=Position(line=line, column=1),
-                    snippet=None,
+                    snippet=snippet,
                     recommendation=None,
                     meta={"engine": "shellcheck", "code": code, "level": level},
                 )
