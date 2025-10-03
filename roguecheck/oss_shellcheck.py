@@ -97,8 +97,13 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
                 )
             )
             continue
-
-        for item in data.get("comments", []) or []:
+        # ShellCheck -f json may return a list of comments or an object with "comments" key.
+        comments = []
+        if isinstance(data, list):
+            comments = data
+        elif isinstance(data, dict):
+            comments = data.get("comments", []) or []
+        for item in comments:
             code = item.get("code")
             level = item.get("level", "warning")
             message = item.get("message", "ShellCheck finding")
