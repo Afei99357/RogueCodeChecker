@@ -3,10 +3,14 @@ Results Table Component - Simple Design
 Display scan results in a clean, easy-to-read format
 """
 
+import io
+import zipfile
 from typing import Any, Dict, List
 
 import pandas as pd
 import streamlit as st
+
+from roguecheck.report import to_markdown
 
 
 def render_results(results: Dict[str, Any], scanner_service) -> None:
@@ -26,7 +30,12 @@ def render_results(results: Dict[str, Any], scanner_service) -> None:
     summary = results["summary"]
 
     render_summary_metrics(summary)
-    render_findings_table(findings, scanner_service)
+    render_findings_table(
+        findings,
+        scanner_service,
+        results.get("findings_by_file", {}),
+        results.get("files_scanned", []),
+    )
     render_file_breakdown(results["findings_by_file"])
     if diagnostics:
         _render_diagnostics(diagnostics, scanner_service)
@@ -64,7 +73,12 @@ def render_summary_metrics(summary: Dict[str, Any]) -> None:
         st.caption(f"Breakdown: {severity_text}")
 
 
-def render_findings_table(findings: List, scanner_service) -> None:
+def render_findings_table(
+    findings: List,
+    scanner_service,
+    findings_by_file: Dict[str, List],
+    files_scanned: List[str],
+) -> None:
     st.subheader("🔍 Issues Found")
     df = scanner_service.findings_to_dataframe(findings)
     if df.empty:
@@ -142,20 +156,12 @@ def render_findings_table(findings: List, scanner_service) -> None:
                     "show_details", False
                 )
         with col3:
-            # Per-file CSVs as ZIP
-            import io, zipfile
-            if st.button("📦 Download per-file CSVs"):
-                buf = io.BytesIO()
-                with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-                    for file_name in sorted(filtered_df["File"].unique()):
-                        sub = filtered_df[filtered_df["File"] == file_name]
-                        csv_bytes = sub.to_csv(index=False).encode("utf-8")
-                        safe_name = file_name.replace("/", "_").replace("\\", "_")
-                        zf.writestr(f"{safe_name}_report.csv", csv_bytes)
+            if st.button("📦 Download per-file Markdown"):
+                zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
                 st.download_button(
-                    label="⬇️ Save ZIP",
-                    data=buf.getvalue(),
-                    file_name="per_file_reports.zip",
+                    label="⬇️ Save Reports",
+                    data=zip_bytes,
+                    file_name="per_file_markdown_reports.zip",
                     mime="application/zip",
                 )
         if st.session_state.get("show_details", False):
@@ -213,3 +219,25 @@ def get_severity_color(severity: str) -> str:
         "low": "#6C757D",
     }
     return colors.get(severity, "#6C757D")
+
+
+def _build_markdown_zip(
+    findings_by_file: Dict[str, List], files_scanned: List[str]
+) -> bytes:
+    buf = io.BytesIO()
+    counts: Dict[str, int] = {}
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        ordered_files = files_scanned or list(findings_by_file.keys())
+        for file_name in ordered_files:
+            findings = findings_by_file.get(file_name, [])
+            content = to_markdown(findings)
+            safe_name = file_name.replace("/", "_").replace("\\", "_")
+            if not safe_name.lower().endswith("_report.md"):
+                safe_name = f"{safe_name}_report.md"
+            counts[safe_name] = counts.get(safe_name, 0) + 1
+            final_name = safe_name
+            if counts[safe_name] > 1:
+                stem, ext = safe_name.rsplit(".", 1)
+                final_name = f"{stem}_{counts[safe_name]-1}.{ext}"
+            zf.writestr(final_name, content)
+    return buf.getvalue()
