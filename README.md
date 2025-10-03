@@ -30,6 +30,15 @@ RogueCheck scans for malicious/rogue code patterns across languages using open-s
 
 ## Quickstart (CLI)
 
+Quick use (defaults)
+- venv: `python -m osscheck scan --path test_samples --per-file-out-dir out_cli`
+- uv: `uv run python -m osscheck scan --path test_samples --per-file-out-dir out_cli`
+
+These use the built‑in defaults:
+- Tools: `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict`
+- Packs: `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql`
+- Strict SQL: enabled
+
 - Using uv (recommended)
   - Install deps: `uv sync`
   - Full scan with per-file reports (Markdown):
