@@ -2,9 +2,9 @@ import argparse
 import os
 import sys
 
-from core.models import Finding
-from core.policy import Policy
-from core.report import SEV_ORDER, to_markdown, to_json, to_sarif
+from roguecheck.models import Finding
+from roguecheck.policy import Policy
+from roguecheck.report import SEV_ORDER, to_markdown, to_json, to_sarif
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
 
@@ -73,7 +73,7 @@ def main(argv=None):
         elif "sql-strict" not in selected:
             selected.append("sql-strict")
 
-        from core.oss_runner import run_oss_tools
+        from roguecheck.oss_runner import run_oss_tools
 
         findings = run_oss_tools(
             root=args.path,
@@ -155,4 +155,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
