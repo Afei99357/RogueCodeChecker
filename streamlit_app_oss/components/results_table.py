@@ -156,14 +156,13 @@ def render_findings_table(
                     "show_details", False
                 )
         with col3:
-            if st.button("📦 Download per-file Markdown"):
-                zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
-                st.download_button(
-                    label="⬇️ Save Reports",
-                    data=zip_bytes,
-                    file_name="per_file_markdown_reports.zip",
-                    mime="application/zip",
-                )
+            zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
+            st.download_button(
+                label="📦 Download per-file Markdown",
+                data=zip_bytes,
+                file_name="per_file_markdown_reports.zip",
+                mime="application/zip",
+            )
         if st.session_state.get("show_details", False):
             st.subheader("📋 Detailed View")
             for idx, row in filtered_df.iterrows():
