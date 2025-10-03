@@ -10,8 +10,16 @@ import streamlit as st
 
 
 def render_results(results: Dict[str, Any], scanner_service) -> None:
-    if not results or not results.get("all_findings"):
-        st.success("✅ No security issues found in uploaded files!")
+    if not results:
+        st.info("Upload files to scan.")
+        return
+
+    has_issues = bool(results.get("all_findings"))
+    diagnostics = results.get("diagnostics", [])
+    if not has_issues:
+        st.info("No code issues found in uploaded files.")
+        if diagnostics:
+            _render_diagnostics(diagnostics, scanner_service)
         return
 
     findings = results["all_findings"]
@@ -20,6 +28,21 @@ def render_results(results: Dict[str, Any], scanner_service) -> None:
     render_summary_metrics(summary)
     render_findings_table(findings, scanner_service)
     render_file_breakdown(results["findings_by_file"])
+    if diagnostics:
+        _render_diagnostics(diagnostics, scanner_service)
+
+def _render_diagnostics(diags: List, scanner_service) -> None:
+    with st.expander("🛠 Engine Diagnostics", expanded=False):
+        st.caption("Environment or engine advisories that are not tied to a file.")
+        if not diags:
+            st.write("No diagnostics.")
+            return
+        df = scanner_service.findings_to_dataframe(diags)
+        if df.empty:
+            st.write("No diagnostics.")
+            return
+        display_columns = ["Rule ID", "Severity", "Message", "Recommendation"]
+        st.dataframe(df[display_columns], use_container_width=True, hide_index=True)
 
 
 def render_summary_metrics(summary: Dict[str, Any]) -> None:

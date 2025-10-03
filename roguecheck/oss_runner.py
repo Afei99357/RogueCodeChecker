@@ -40,6 +40,8 @@ def run_oss_tools(
             discover_list = [p for p in targets if p.endswith((".ipynb", ".py"))]
 
         generated = preprocess_notebooks(discover_list, tmp)
+        # Map of generated temp file -> (origin_abs_path, origin_start_line)
+        origin_map: dict[str, tuple[str, int]] = {}
         # Generic snippet extraction for all files (SQL / Shell inside other hosts)
         for p in (files or []):
             try:
@@ -47,7 +49,7 @@ def run_oss_tools(
                     txt = fh.read()
             except Exception:
                 continue
-            for ext, snippet in extract_embedded_snippets(txt):
+            for ext, snippet, start_line in extract_embedded_snippets(txt):
                 if not snippet:
                     continue
                 base = os.path.basename(p)
@@ -56,6 +58,9 @@ def run_oss_tools(
                     with open(out_path, "w", encoding="utf-8") as oh:
                         oh.write(snippet)
                     generated.append(out_path)
+                    # Record origin path and starting line for mapping back
+                    abs_origin = p if os.path.isabs(p) else os.path.abspath(os.path.join(root, p))
+                    origin_map[out_path] = (abs_origin, int(start_line) if start_line else 1)
                 except Exception:
                     pass
         # If files have unknown extension but look like a language, create a typed copy for Semgrep
@@ -79,6 +84,7 @@ def run_oss_tools(
                 with open(new_path, "w", encoding="utf-8") as oh:
                     oh.write(txt)
                 typed_copies.append(new_path)
+                origin_map[new_path] = (abs_p, 1)
             except Exception:
                 pass
         combined_files: Optional[List[str]] = None
@@ -129,5 +135,20 @@ def run_oss_tools(
             all_findings.extend(
                 scan_with_sqlcheck(root=root, policy=policy, files=combined_files)
             )
+        # Map findings produced on generated temp files back to their origin file and line
+        if origin_map:
+            for f in all_findings:
+                # Compute absolute path for the finding relative to root
+                f_abs = f.path if os.path.isabs(f.path) else os.path.abspath(os.path.join(root, f.path))
+                if f_abs in origin_map:
+                    origin_path, origin_start = origin_map[f_abs]
+                    try:
+                        # Rebase path to the origin file relative to root
+                        f.path = os.path.relpath(origin_path, root)
+                        # Adjust line number relative to snippet start
+                        if getattr(f, "position", None):
+                            f.position.line = int(origin_start) + int(getattr(f.position, "line", 1)) - 1
+                    except Exception:
+                        pass
 
     return all_findings

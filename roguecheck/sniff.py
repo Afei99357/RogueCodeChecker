@@ -36,17 +36,21 @@ def guess_extensions(text: str, filename: str) -> List[str]:
     return []
 
 
-def extract_embedded_snippets(text: str) -> List[Tuple[str, str]]:
+def _line_from_index(text: str, idx: int) -> int:
+    return text.count("\n", 0, idx) + 1
+
+
+def extract_embedded_snippets(text: str) -> List[Tuple[str, str, int]]:
     """Extract embedded SQL or shell-like snippets from a text blob.
-    Returns list of (ext, snippet_text) where ext is ".sql" or ".sh".
+    Returns list of (ext, snippet_text, start_line) where ext is ".sql" or ".sh".
     Very lightweight heuristics to augment coverage across host languages.
     """
-    out: List[Tuple[str, str]] = []
+    out: List[Tuple[str, str, int]] = []
     # Fenced code blocks ```sql ... ``` or ```bash ... ```
     for m in re.finditer(r"```(sql|postgres|tsql|bigquery)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL):
-        out.append((".sql", m.group(2).strip()))
+        out.append((".sql", m.group(2).strip(), _line_from_index(text, m.start(2))))
     for m in re.finditer(r"```(bash|sh|shell)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL):
-        out.append((".sh", m.group(2).strip()))
+        out.append((".sh", m.group(2).strip(), _line_from_index(text, m.start(2))))
     # Inline SQL hints: capture lines around statements
     for m in SQL_HINT.finditer(text):
         # Grab up to next semicolon or 5 lines
@@ -54,7 +58,7 @@ def extract_embedded_snippets(text: str) -> List[Tuple[str, str]]:
         segment = text[start: start + 1000]
         semi = segment.find(";")
         snippet = segment[: semi + 1] if semi != -1 else segment.splitlines()[0]
-        out.append((".sql", snippet.strip()))
+        out.append((".sql", snippet.strip(), _line_from_index(text, start)))
     # Shell hints: capture the line
     for m in SHELL_HINT.finditer(text):
         line_start = text.rfind("\n", 0, m.start()) + 1
@@ -62,28 +66,28 @@ def extract_embedded_snippets(text: str) -> List[Tuple[str, str]]:
         if line_end == -1:
             line_end = len(text)
         line = text[line_start:line_end]
-        out.append((".sh", line.strip()))
+        out.append((".sh", line.strip(), _line_from_index(text, line_start)))
 
     # Java-specific: Runtime.exec and ProcessBuilder("bash","-c", ...)
     for m in re.finditer(r"Runtime\.getRuntime\(\)\.exec\(\s*\"([^\"]+)\"\s*\)", text):
-        out.append((".sh", m.group(1)))
+        out.append((".sh", m.group(1), _line_from_index(text, m.start(1))))
     # ProcessBuilder("bash","-c","<cmd>")
     for m in re.finditer(r"ProcessBuilder\(\s*\"bash\"\s*,\s*\"-c\"\s*,\s*\"([^\"]+)\"\s*\)", text):
-        out.append((".sh", m.group(1)))
+        out.append((".sh", m.group(1), _line_from_index(text, m.start(1))))
     # JDBC Statement.execute("SQL...") / executeQuery / prepareStatement
     for m in re.finditer(r"\.(execute|executeQuery|prepareStatement)\(\s*\"([^\"]+)\"\s*\)", text):
         sql = m.group(2)
         if SQL_HINT.search(sql):
-            out.append((".sql", sql))
+            out.append((".sql", sql, _line_from_index(text, m.start(2))))
 
     # JavaScript/TypeScript: child_process.exec/execSync and spawn('sh','-c',...)
     for m in re.finditer(r"child_process\.(exec|execSync)\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
-        out.append((".sh", m.group(2)))
+        out.append((".sh", m.group(2), _line_from_index(text, m.start(2))))
     for m in re.finditer(r"spawn\(\s*['\"](bash|sh)['\"]\s*,\s*\[\s*['\"]-c['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\]", text):
-        out.append((".sh", m.group(2)))
+        out.append((".sh", m.group(2), _line_from_index(text, m.start(2))))
     # Common SQL query usage in JS: db.query("SQL ...")
     for m in re.finditer(r"\.(query|execute)\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
         s = m.group(2)
         if SQL_HINT.search(s):
-            out.append((".sql", s))
+            out.append((".sql", s, _line_from_index(text, m.start(2))))
     return out

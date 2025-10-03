@@ -23,7 +23,8 @@ class ScannerService:
 
         results = {
             "findings_by_file": {},
-            "all_findings": [],
+            "all_findings": [],  # code issues only
+            "diagnostics": [],   # engine advisories (OSS_ENGINE_*)
             "summary": {},
             "files_scanned": [],
         }
@@ -81,14 +82,17 @@ class ScannerService:
                     semgrep_config=semgrep_packs,
                     files=file_paths,
                 )
+                filtered: List[Finding] = []
                 for finding in all_findings:
+                    if str(finding.rule_id).startswith("OSS_ENGINE_"):
+                        results["diagnostics"].append(finding)
+                        continue
                     filename = finding.path
-                    if filename not in results["findings_by_file"]:
-                        results["findings_by_file"][filename] = []
-                    results["findings_by_file"][filename].append(finding)
-                results["all_findings"] = all_findings
+                    results["findings_by_file"].setdefault(filename, []).append(finding)
+                    filtered.append(finding)
+                results["all_findings"] = filtered
                 results["files_scanned"] = [f.name for f in uploaded_files]
-                results["summary"] = self._generate_summary(all_findings)
+                results["summary"] = self._generate_summary(filtered)
             except Exception as e:
                 results["error"] = str(e)
                 results["summary"] = {"error": True, "message": str(e)}
