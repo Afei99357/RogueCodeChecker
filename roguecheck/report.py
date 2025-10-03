@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import Iterable, List
 
 from .models import Finding
 
@@ -10,8 +10,20 @@ def to_markdown(findings: List[Finding]) -> str:
     if not findings:
         return "✅ No issues found."
     lines = ["# RogueCheck Report", ""]
-    for f in findings:
-        lines.append(f"## [{f.severity.upper()}] {f.rule_id} — {f.path}:{f.position.line}")
+    totals = _summarize(findings)
+    lines.append(
+        "**Summary:** "
+        + ", ".join(
+            f"{label}: {count}"
+            for label, count in totals.items()
+            if count > 0 or label == "Total"
+        )
+    )
+    lines.append("")
+    for idx, f in enumerate(findings, start=1):
+        lines.append(
+            f"## {idx}. [{f.severity.upper()}] {f.rule_id} — {f.path}:{f.position.line}"
+        )
         lines.append(f"{f.message}\n")
         if f.snippet:
             lines.append("```\n" + f.snippet + "\n```")
@@ -19,6 +31,22 @@ def to_markdown(findings: List[Finding]) -> str:
             lines.append(f"**Fix:** {f.recommendation}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _summarize(findings: Iterable[Finding]) -> dict[str, int]:
+    totals = {"Total": 0, "Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    for f in findings:
+        totals["Total"] += 1
+        sev = f.severity.lower()
+        if sev == "critical":
+            totals["Critical"] += 1
+        elif sev == "high":
+            totals["High"] += 1
+        elif sev == "medium":
+            totals["Medium"] += 1
+        else:
+            totals["Low"] += 1
+    return totals
 
 
 def to_json(findings: List[Finding]) -> str:
@@ -61,4 +89,3 @@ def to_sarif(findings: List[Finding]) -> str:
         ],
     }
     return json.dumps(sarif, indent=2)
-
