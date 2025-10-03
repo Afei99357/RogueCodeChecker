@@ -12,6 +12,7 @@ dependencies = [
     "semgrep==1.139.0",
     "detect-secrets==1.5.0",
     "sqlfluff==3.4.2",
+    "shellcheck-py==0.11.0.1",
 ]
 
 [dependency-groups]
