@@ -21,6 +21,8 @@ def render_file_upload() -> List:
         "sql",
         "sh",
         "bash",
+        "txt",
+        "md",
         "ipynb",
         "js",
         "ts",
@@ -103,11 +105,12 @@ def render_file_upload() -> List:
         - **Python** (.py)
         - **SQL** (.sql)
         - **Bash** (.sh)
+        - **Plain text/Markdown** (.txt, .md) — extracts embedded SQL/Bash fences and snippets
         - **Notebooks** (.ipynb)
         - **JavaScript/TypeScript** (.js, .ts)
         - **Java/Go/Ruby/PHP/C#** (.java, .go, .rb, .php, .cs)
         - **Terraform/YAML** (.tf, .yaml, .yml)
         - **Dockerfile** (no extension; named "Dockerfile")
-        """
+            """
         )
         return []
