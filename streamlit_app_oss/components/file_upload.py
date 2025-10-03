@@ -83,10 +83,11 @@ def render_file_upload() -> List:
             with col2:
                 st.metric("Total Size", f"{total_size / 1024:.1f} KB")
             with col3:
-                most_common_type = (
-                    max(file_types.items(), key=lambda x: x[1]) if file_types else ("none", 0)
-                )
-                st.metric("Primary Type", f".{most_common_type[0]}")
+                st.metric("Unique Types", len(file_types) or 0)
+                if file_types:
+                    st.caption(
+                        ", ".join(sorted({ext.upper() for ext in file_types.keys()}))
+                    )
 
             if len(file_types) > 1:
                 with st.expander("📊 File Type Breakdown"):
