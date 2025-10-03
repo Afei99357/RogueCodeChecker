@@ -96,15 +96,46 @@ def main(argv=None):
         if args.per_file_out_dir:
             os.makedirs(args.per_file_out_dir, exist_ok=True)
             # group findings by file path
-            by_file = {}
+            by_file: dict[str, list[Finding]] = {}
             for f in findings:
                 by_file.setdefault(f.path, []).append(f)
+
+            # Determine input files to ensure every input gets a report, even with no findings
+            input_files_rel: list[str] = []
+            if args.paths_from:
+                # Respect explicit list; normalize relative to root path
+                tmp: list[str] = []
+                try:
+                    with open(args.paths_from, "r", encoding="utf-8") as fl:
+                        tmp = [ln.strip() for ln in fl.read().splitlines() if ln.strip()]
+                except Exception:
+                    tmp = []
+                for pth in tmp:
+                    ap = pth if os.path.isabs(pth) else os.path.abspath(os.path.join(args.path, pth))
+                    try:
+                        rp = os.path.relpath(ap, args.path if os.path.isdir(args.path) else os.path.dirname(os.path.abspath(args.path)))
+                    except Exception:
+                        rp = os.path.basename(ap)
+                    input_files_rel.append(rp)
+            elif os.path.isdir(args.path):
+                for dirpath, _, filenames in os.walk(args.path):
+                    for fn in filenames:
+                        full = os.path.join(dirpath, fn)
+                        try:
+                            rp = os.path.relpath(full, args.path)
+                        except Exception:
+                            rp = fn
+                        input_files_rel.append(rp)
+            elif os.path.isfile(args.path):
+                # Single file: just use its basename
+                input_files_rel.append(os.path.basename(args.path))
+
+            # Write one report per input file
             ext = {"md": ".md", "json": ".json", "sarif": ".sarif"}[args.format]
             written = []
-            for path, fs in by_file.items():
-                if not fs:
-                    continue
-                base = os.path.splitext(os.path.basename(path))[0]
+            for rel in sorted(set(input_files_rel)):
+                fs = by_file.get(rel, [])
+                base = os.path.splitext(os.path.basename(rel))[0]
                 out_path = os.path.join(args.per_file_out_dir, f"{base}_report{ext}")
                 content = _render(fs, args.format)
                 with open(out_path, "w", encoding="utf-8") as fh:
