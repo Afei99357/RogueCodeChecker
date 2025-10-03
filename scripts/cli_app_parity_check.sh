@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "== CLI scan (Markdown) on test_samples =="
-uv run python -m osscheck scan \
+uv run python -m osscheck_cli scan \
   --path "$ROOT_DIR/test_samples" \
   --format md \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
@@ -17,4 +17,3 @@ uv run python -m osscheck scan \
 echo
 echo "Reports written to: $ROOT_DIR/out_cli"
 echo "Open the Streamlit app and upload the same files to compare results."
-

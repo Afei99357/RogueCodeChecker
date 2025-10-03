@@ -31,8 +31,8 @@ RogueCheck scans for malicious/rogue code patterns across languages using open-s
 ## Quickstart (CLI)
 
 Quick use (defaults)
-- venv: `python -m osscheck scan --path test_samples --per-file-out-dir out_cli`
-- uv: `uv run python -m osscheck scan --path test_samples --per-file-out-dir out_cli`
+- venv: `python -m osscheck_cli scan --path test_samples --per-file-out-dir out_cli`
+- uv: `uv run python -m osscheck_cli scan --path test_samples --per-file-out-dir out_cli`
 
 These use the built‑in defaults:
 - Tools: `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict`
@@ -43,7 +43,7 @@ These use the built‑in defaults:
   - Install deps: `uv sync`
   - Full scan with per-file reports (Markdown):
     ```bash
-    uv run python -m osscheck scan \
+    uv run python -m osscheck_cli scan \
       --path . \
       --format md \
       --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
@@ -53,7 +53,7 @@ These use the built‑in defaults:
 - Using venv + pip
   - `python -m venv .venv && source .venv/bin/activate`
   - `pip install -r requirements.txt`
-  - `python -m osscheck scan --path . --format md --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql --per-file-out-dir out_cli`
+  - `python -m osscheck_cli scan --path . --format md --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql --per-file-out-dir out_cli`
 
 - One‑command helper script
   - `bash scripts/scan_local.sh test_samples` (adds per‑file reports to `out_cli/`)
@@ -95,7 +95,7 @@ Notes:
 
 - Folder scan with per-file reports (Markdown):
   ```bash
-  uv run python -m osscheck scan \
+  uv run python -m osscheck_cli scan \
     --path test_samples \
     --format md \
     --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
@@ -105,12 +105,12 @@ Notes:
   This includes `.txt`/`.md` capture and notebook extraction; findings from embedded snippets are mapped back to the source files.
 - Single file (Python + secrets):
   ```bash
-  uv run python -m osscheck scan --path test_samples/dangerous_python.py --format md --tools semgrep,detect-secrets --semgrep-config p/python
+  uv run python -m osscheck_cli scan --path test_samples/dangerous_python.py --format md --tools semgrep,detect-secrets --semgrep-config p/python
   ```
 - Batch via list and SARIF output:
   ```bash
   git ls-files 'test_samples/*' > files.txt
-  uv run python -m osscheck scan --path . --paths-from files.txt --format sarif --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql
+  uv run python -m osscheck_cli scan --path . --paths-from files.txt --format sarif --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql
   ```
 
 ## Troubleshooting

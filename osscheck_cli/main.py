@@ -5,7 +5,6 @@ import sys
 from core.models import Finding
 from core.policy import Policy
 from core.report import SEV_ORDER, to_markdown, to_json, to_sarif
-from roguecheck.oss_semgrep import scan_with_semgrep
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
 
@@ -20,17 +19,17 @@ def _render(findings: list[Finding], fmt: str) -> str:
 
 def main(argv=None):
     p = argparse.ArgumentParser(
-        prog="osscheck", description="Scan using open-source tools (Semgrep)"
+        prog="osscheck-cli", description="Scan using open-source tools (Semgrep, etc.)"
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sp = sub.add_parser("scan", help="Scan a path or file list with Semgrep")
+    sp = sub.add_parser("scan", help="Scan a path or file list with OSS tools")
     sp.add_argument("--path", default=".", help="root path to scan")
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
         default="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql",
-        help="Semgrep config (comma-separated: registry packs like p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql, or 'auto')",
+        help="Semgrep config (comma-separated packs or 'auto')",
     )
     sp.add_argument(
         "--tools",
@@ -48,16 +47,14 @@ def main(argv=None):
         help="Directory to write one report per input file (e.g., name_report.md)",
     )
     sp.add_argument(
-        "--fail-on",
-        choices=["low", "medium", "high", "critical"],
-        default="high",
+        "--fail-on", choices=["low", "medium", "high", "critical"], default="high"
     )
     sp.add_argument("--out", help="write report to file instead of stdout")
 
     args = p.parse_args(argv)
 
     if args.cmd == "scan":
-        pol = Policy.load()  # policy is not enforced by OSS tools but kept for future use
+        pol = Policy.load()
 
         # Optional explicit file list
         files = None
@@ -75,6 +72,7 @@ def main(argv=None):
             selected = [t for t in selected if t != "sql-strict"]
         elif "sql-strict" not in selected:
             selected.append("sql-strict")
+
         from core.oss_runner import run_oss_tools
 
         findings = run_oss_tools(
@@ -113,7 +111,12 @@ def main(argv=None):
                 for pth in tmp:
                     ap = pth if os.path.isabs(pth) else os.path.abspath(os.path.join(args.path, pth))
                     try:
-                        rp = os.path.relpath(ap, args.path if os.path.isdir(args.path) else os.path.dirname(os.path.abspath(args.path)))
+                        rp = os.path.relpath(
+                            ap,
+                            args.path
+                            if os.path.isdir(args.path)
+                            else os.path.dirname(os.path.abspath(args.path)),
+                        )
                     except Exception:
                         rp = os.path.basename(ap)
                     input_files_rel.append(rp)
@@ -152,3 +155,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

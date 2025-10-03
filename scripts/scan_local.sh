@@ -46,14 +46,14 @@ mkdir -p "$HOME"
 run()
 {
   if command -v uv >/dev/null 2>&1; then
-    uv run python -m osscheck scan --path "$TARGET" \
+    uv run python -m osscheck_cli scan --path "$TARGET" \
       --format "$FORMAT" \
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
       ${NO_SQL_STRICT:+--no-sql-strict} \
       --per-file-out-dir "$OUT_DIR"
   else
-    python -m osscheck scan --path "$TARGET" \
+    python -m osscheck_cli scan --path "$TARGET" \
       --format "$FORMAT" \
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
@@ -66,4 +66,3 @@ run
 
 echo
 echo "Per-file reports written to: $OUT_DIR" >&2
-
