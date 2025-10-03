@@ -54,3 +54,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Tool and output artifacts
+.semgrephome/
+.home_tmp/
+out_cli/
+test_output/
