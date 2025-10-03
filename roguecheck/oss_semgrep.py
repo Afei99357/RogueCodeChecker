@@ -141,9 +141,76 @@ def scan_with_semgrep(
         )
         return findings
 
-    # If Semgrep returned 7 (no targets) and no results, treat as no findings
+    # If Semgrep returned 7 (no targets) and no results, try a helpful fallback and surface an advisory
     if proc.returncode == 7 and not data.get("results"):
-        return findings
+        fallback_cmd = [semgrep_bin, "--json", "--quiet", "--config=auto"]
+        if files:
+            abs_files = [
+                f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files
+            ]
+            fallback_cmd.extend(abs_files)
+        else:
+            fallback_cmd.append(os.path.abspath(root))
+        try:
+            fb = subprocess.run(
+                fallback_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=180,
+                env=env,
+            )
+            if fb.returncode in (0, 1):
+                try:
+                    data = json.loads(fb.stdout or "{}")
+                except json.JSONDecodeError:
+                    data = {"results": []}
+                findings.append(
+                    Finding(
+                        rule_id="OSS_ENGINE_SEMGREP_FALLBACK",
+                        severity="low",
+                        message=(
+                            "Semgrep reported no targets or packs. Used --config=auto fallback; coverage may be reduced."
+                        ),
+                        path=relpath(root, os.getcwd()),
+                        position=Position(1, 1),
+                        snippet=None,
+                        recommendation=(
+                            "Ensure network access to semgrep.dev or provide local packs via --semgrep-config."
+                        ),
+                    )
+                )
+                proc = fb
+            else:
+                findings.append(
+                    Finding(
+                        rule_id="OSS_ENGINE_SEMGREP_NO_TARGETS",
+                        severity="low",
+                        message="Semgrep returned no targets and no results.",
+                        path=relpath(root, os.getcwd()),
+                        position=Position(1, 1),
+                        snippet=None,
+                        recommendation=(
+                            "Check included packs and file types. Add packs or pass explicit files."
+                        ),
+                    )
+                )
+        except Exception:
+            findings.append(
+                Finding(
+                    rule_id="OSS_ENGINE_SEMGREP_NO_TARGETS",
+                    severity="low",
+                    message="Semgrep returned no targets and no results.",
+                    path=relpath(root, os.getcwd()),
+                    position=Position(1, 1),
+                    snippet=None,
+                    recommendation=(
+                        "Check included packs and file types. Add packs or pass explicit files."
+                    ),
+                )
+            )
+        if not data.get("results"):
+            return findings
 
     if proc.returncode not in (0, 1, 7):
         # Attempt a fallback with --config=auto which may work better offline

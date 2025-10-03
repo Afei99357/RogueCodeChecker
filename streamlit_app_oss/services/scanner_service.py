@@ -73,11 +73,13 @@ class ScannerService:
                 semgrep_packs = ",".join(sorted(merged))
                 # Always enable strict SQL checks by default
                 tools = list(tools) + ["sql-strict"]
+                # Pass explicit file list so tools target exactly the uploaded files
                 all_findings = run_oss_tools(
                     root=temp_dir,
                     policy=policy,
                     tools=list(tools),
                     semgrep_config=semgrep_packs,
+                    files=file_paths,
                 )
                 for finding in all_findings:
                     filename = finding.path
