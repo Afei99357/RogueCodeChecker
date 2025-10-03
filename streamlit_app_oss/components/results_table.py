@@ -150,21 +150,8 @@ def render_findings_table(
                 )
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2 = st.columns([1, 1])
         with col1:
-            csv = filtered_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv,
-                file_name="roguecheck_results.csv",
-                mime="text/csv",
-            )
-        with col2:
-            if st.button("👁️ Show Details"):
-                st.session_state.show_details = not st.session_state.get(
-                    "show_details", False
-                )
-        with col3:
             zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
             st.download_button(
                 label="📦 Download per-file Markdown",
@@ -172,6 +159,11 @@ def render_findings_table(
                 file_name="per_file_markdown_reports.zip",
                 mime="application/zip",
             )
+        with col2:
+            if st.button("👁️ Show Details"):
+                st.session_state.show_details = not st.session_state.get(
+                    "show_details", False
+                )
         if st.session_state.get("show_details", False):
             st.subheader("📋 Detailed View")
             for idx, row in filtered_df.iterrows():
