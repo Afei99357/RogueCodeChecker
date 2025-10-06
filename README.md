@@ -1,205 +1,423 @@
 # RogueCheck
 
-RogueCheck scans for malicious/rogue code patterns across languages using open-source tools. It supports a CLI and a Streamlit web app.
+Security scanner for detecting malicious code patterns, vulnerabilities, and AI-specific security issues using open-source tools and LLM-based analysis.
 
-## What It Covers
+## Features
 
-- Multi-language SAST (Semgrep)
-  - Defaults: p/security-audit, p/owasp-top-ten, p/secrets, p/python, p/bash, p/javascript, p/typescript, p/sql
-  - App auto-adds packs for uploaded types: java/go/ruby/php/csharp/dockerfile/terraform/yaml
-- Secrets scanning (detect-secrets) across any file
-- SQL checks
-  - Style: sqlfluff (linting)
-  - Security: strict raw .sql checks (enabled by default) for GRANT ALL, DELETE without WHERE, DROP TABLE (non-temp)
-- Shell checks
-  - ShellCheck for .sh/.bash (install shellcheck on PATH)
-- Notebooks
-  - Extracts Python cells and %sql/%%sql cells from .ipynb and Databricks-exported .py notebooks
-- Embedded content detection
-  - Heuristics to extract SQL/Shell snippets inside other files (e.g., SQL inside Python strings, shell commands inside Java/JS), then runs the right tool on the snippet
-- Per-file reports
-  - CLI can write one report per file (md/json/sarif)
+### Multi-Layer Security Scanning
 
-## Requirements
+1. **Static Analysis (Semgrep)**
+   - Multi-language SAST with 10+ language support
+   - Security-audit, OWASP Top 10, secrets detection
+   - Custom AI security rules (prompt injection, AI code quality)
 
-- Python 3.10+
-- Network access to semgrep.dev for registry packs (or use `--semgrep-config auto`)
-- Tools on PATH:
-  - semgrep, detect-secrets, sqlfluff are installed via `requirements.txt`
-  - shellcheck via OS package (brew/apt) or vendored binary via `shellcheck-py` (already pinned in `requirements.txt`)
+2. **LLM-Based Code Review**
+   - Semantic security analysis using local (Ollama) or cloud (Databricks) LLMs
+   - Detects context-specific vulnerabilities pattern-based tools miss
+   - Supports qwen3, llama3, codellama, and custom models
 
-## Quickstart (CLI)
+3. **Specialized Scanners**
+   - **Secrets**: detect-secrets for API keys, tokens, passwords
+   - **SQL**: sqlfluff linting + strict security checks (unsafe queries, missing WHERE)
+   - **Shell**: ShellCheck for bash/sh scripts
+   - **Notebooks**: Extracts and scans .ipynb and Databricks notebooks
 
-Quick use (defaults)
-- venv: `python -m osscheck_cli scan --path test_samples --per-file-out-dir out_cli`
-- uv: `uv run python -m osscheck_cli scan --path test_samples --per-file-out-dir out_cli`
+4. **Smart Detection**
+   - Embedded code extraction (SQL in Python strings, shell in Java, etc.)
+   - Per-file reports (Markdown, JSON, SARIF)
 
-These use the built‑in defaults:
-- Tools: `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict`
-- Packs: `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript`
-- Strict SQL: enabled
-
-- Using uv (recommended)
-  - Install deps: `uv sync`
-  - Full scan with per-file reports (Markdown):
-    ```bash
-    uv run python -m osscheck_cli scan \
-      --path . \
-      --format md \
-      --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
-      --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript \
-      --per-file-out-dir out_cli
-    ```
-- Using venv + pip
-  - `python -m venv .venv && source .venv/bin/activate`
-  - `pip install -r requirements.txt`
-  - `python -m osscheck_cli scan --path . --format md --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript --per-file-out-dir out_cli`
-
-- One‑command helper script
-  - `bash scripts/scan_local.sh test_samples` (adds per‑file reports to `out_cli/`)
-
-## Options (CLI)
-
-- `--path <dir|file>` — scan a directory or single file
-- `--paths-from <file>` — scan only files listed (one per line)
-- `--format md|json|sarif` — output format
-- `--tools` — comma-separated tools (default: `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict`)
-- `--semgrep-config` — comma-separated packs or `auto` (default includes security-audit, OWASP Top 10, secrets, Python/Bash/JS/TS/SQL packs)
-- `--per-file-out-dir <dir>` — additionally write one report per file into this directory
-- `--fail-on low|medium|high|critical` — exit non-zero if any finding at/above threshold
-
-Notes:
-- Passing a single file in `--path` runs all selected tools against that file (including strict SQL and snippet extraction).
-- You can also pass `--paths-from <filelist>` to scan an explicit list.
-
-## Web App (Streamlit)
-
-- Run: `python run_app_oss.py` then open `http://localhost:8501`
-- Sidebar
-  - “Semgrep Packs” (default set; auto-augmented to match uploaded file types)
-- Upload
-  - Supports: `.py`, `.sql`, `.sh`, `.bash`, `.ipynb`, `.js`, `.ts`, `.java`, `.go`, `.rb`, `.php`, `.cs`, `.tf`, `.yaml`/`.yml`, `.txt`, `.md`, `Dockerfile`
-- Results
-  - View Mode: Combined or By File
-  - Export combined CSV, or per-file CSV ZIP
-  - Diagnostics panel shows tool presence/versions and active packs
-
-## Behavior & Notes
-
-- Strict SQL checks are enabled by default (CLI/app).
-- ShellCheck: if not installed and there are shell targets, you will see a low-severity diagnostic. Install via OS or use `shellcheck-py`.
-- Semgrep packs: if egress to `semgrep.dev` is blocked, the scanner falls back to `--config=auto` and adds a low-severity advisory about reduced coverage.
-- Embedded snippets (SQL/Shell) are extracted from any file (including `.txt`/`.md`) and scanned; findings are mapped back to the source file and line.
-
-## AI Security Features
-
-RogueCheck provides comprehensive AI security scanning through two complementary approaches:
-
-### 1. Custom Semgrep Rules (Pattern-Based)
-
-Custom Semgrep rules for AI-specific security issues:
-
-- **Prompt Injection Detection**: Identifies functions that build LLM prompts with unsanitized user input
-- **AI Code Quality**: Detects common issues in AI-generated code (missing validation, debug code, placeholders, etc.)
+## Installation
 
 ```bash
-# Scan with custom AI security rules
-uv run python -m osscheck_cli scan \
-  --path mycode/ \
-  --semgrep-config semgrep_rules/ai-security/ \
-  --format md
+# Using uv (recommended)
+uv sync
 
-# Combine with standard packs
+# Or using pip
+pip install -r requirements.txt
+```
+
+**Optional: Install Ollama for local LLM review**
+```bash
+# Install Ollama: https://ollama.ai
+ollama pull qwen3
+```
+
+## Quick Start
+
+### CLI
+
+**Basic scan:**
+```bash
+uv run python -m osscheck_cli scan --path test_samples
+```
+
+**With AI security rules:**
+```bash
 uv run python -m osscheck_cli scan \
-  --path mycode/ \
+  --path myproject/ \
   --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
   --format md
 ```
 
-See `semgrep_rules/README.md` for full documentation.
-
-### 2. LLM-Based Code Review (Semantic Analysis)
-
-Uses local or cloud LLMs to perform semantic security analysis, detecting issues that pattern-based tools may miss:
-
-**CLI Usage:**
+**With LLM code review:**
 ```bash
-# Using local Ollama with Qwen3 (default)
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --llm-backend ollama \
+  --llm-model qwen3
+```
+
+### Streamlit App
+
+```bash
+# Start the app
+uv run streamlit run streamlit_app_oss/main.py
+
+# Open browser to http://localhost:8501
+# Upload files, configure settings in sidebar, and scan
+```
+
+## CLI Usage
+
+### Basic Commands
+
+**Scan a directory:**
+```bash
+uv run python -m osscheck_cli scan --path myproject/
+```
+
+**Scan a single file:**
+```bash
+uv run python -m osscheck_cli scan --path myfile.py --format md
+```
+
+**Generate per-file reports:**
+```bash
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --per-file-out-dir reports/ \
+  --format md
+```
+
+### Using AI Security Features
+
+**Option 1: Custom Semgrep Rules (Fast)**
+```bash
+# Use custom AI security rules for prompt injection detection
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --semgrep-config semgrep_rules/ai-security/ \
+  --format md
+```
+
+**Option 2: LLM Review (Thorough)**
+```bash
+# Local Ollama with Qwen3
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --llm-backend ollama \
+  --llm-model qwen3
+
+# Switch to Llama3 or CodeLlama
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools llm-review \
+  --llm-backend ollama \
+  --llm-model llama3  # or codellama
+
+# Databricks Foundation Models
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=dapi...
+export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat
+
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools llm-review \
+  --llm-backend databricks
+```
+
+**Option 3: Combined (Best Coverage)**
+```bash
+# Use both custom rules + LLM review
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck,llm-review \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --llm-model qwen3 \
+  --per-file-out-dir reports/
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--path <dir\|file>` | Directory or file to scan | `.` |
+| `--format <md\|json\|sarif>` | Output format | `md` |
+| `--tools <list>` | Comma-separated tools to run | `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict` |
+| `--semgrep-config <packs>` | Semgrep packs (comma-separated) | `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript` |
+| `--llm-backend <ollama\|databricks>` | LLM backend for code review | `ollama` |
+| `--llm-model <name>` | Model name for Ollama | `qwen3` |
+| `--per-file-out-dir <dir>` | Write per-file reports | None |
+| `--fail-on <severity>` | Exit non-zero if severity found | `high` |
+
+## Streamlit App Usage
+
+### Setup
+
+**1. Configure LLM Backend (Optional)**
+
+For Ollama (local):
+```bash
+export OLLAMA_MODEL=qwen3
+export OLLAMA_ENDPOINT=http://localhost:11434
+```
+
+For Databricks:
+```bash
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=dapi...
+export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat
+```
+
+**2. Start the App**
+```bash
+uv run streamlit run streamlit_app_oss/main.py
+```
+
+**3. Open Browser**
+Navigate to `http://localhost:8501`
+
+### Using the App
+
+1. **Configure Settings (Sidebar)**
+   - Set priority focus (low/medium/high/critical)
+   - Add custom Semgrep packs: `semgrep_rules/ai-security/`
+   - Enable "LLM Code Review" and select backend
+
+2. **Upload Files**
+   - Drag & drop or browse files
+   - Supports: `.py`, `.sql`, `.sh`, `.js`, `.ts`, `.java`, `.go`, `.rb`, `.php`, `.cs`, `.tf`, `.yaml`, `.ipynb`, Dockerfile
+
+3. **Scan & View Results**
+   - View combined results or by-file
+   - Download reports (CSV, Markdown, per-file ZIP)
+   - Check diagnostics panel for tool status
+
+### Example Streamlit Workflow
+
+**Scenario: Scan AI-generated Python code with LLM review**
+
+1. Start app: `uv run streamlit run streamlit_app_oss/main.py`
+2. Sidebar → "Semgrep Packs": Add `semgrep_rules/ai-security/`
+3. Sidebar → Check "Enable LLM Code Review"
+4. Sidebar → Select backend: `databricks` or `ollama`
+5. Upload your Python files
+6. Click "Scan"
+7. Review findings with severity colors
+8. Download Markdown report
+
+## What Gets Scanned
+
+### Languages & File Types
+
+- **Python** (`.py`, `.ipynb`)
+- **SQL** (`.sql`, embedded in notebooks)
+- **Shell** (`.sh`, `.bash`)
+- **JavaScript/TypeScript** (`.js`, `.ts`)
+- **Java** (`.java`)
+- **Go** (`.go`)
+- **Ruby** (`.rb`)
+- **PHP** (`.php`)
+- **C#** (`.cs`)
+- **Terraform** (`.tf`)
+- **YAML** (`.yaml`, `.yml`)
+- **Dockerfile**
+- **Notebooks** (`.ipynb`, Databricks `.py`)
+
+### Security Issues Detected
+
+**Semgrep (Pattern-Based):**
+- OWASP Top 10 vulnerabilities
+- SQL injection, command injection
+- Hardcoded secrets (API keys, passwords)
+- Insecure defaults, missing auth
+- Prompt injection (custom rules)
+- AI code quality issues (custom rules)
+
+**LLM Review (Semantic):**
+- Prompt injection with context understanding
+- Business logic flaws
+- Authorization bypasses
+- Context-specific vulnerabilities
+- Race conditions
+- Unsafe input validation
+
+## AI Security Features
+
+RogueCheck includes specialized scanning for AI/LLM security:
+
+### Custom Semgrep Rules
+
+**Location:** `semgrep_rules/ai-security/`
+
+**What it detects:**
+- Functions building prompts with user input
+- String formatting in prompt functions
+- LLM API calls with unvalidated input
+- Missing input validation
+- Debug code in production
+- Placeholder values
+- Missing authentication
+- Missing rate limiting
+
+**Usage:**
+```bash
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --semgrep-config semgrep_rules/ai-security/
+```
+
+See `semgrep_rules/README.md` for full rule documentation.
+
+### LLM-Based Code Review
+
+**What it detects:**
+- Semantic security issues
+- Complex injection patterns
+- Business logic vulnerabilities
+- Context-aware threat analysis
+
+**Backends:**
+- **Ollama** (local): Privacy-first, offline operation
+- **Databricks**: Enterprise-scale, cloud-based
+
+**Models supported:**
+- qwen3 (fast, recommended)
+- llama3 (powerful)
+- codellama (code-specialized)
+- Custom models via Ollama
+
+**Usage:**
+```bash
+# Local Ollama
 uv run python -m osscheck_cli scan \
   --path mycode/ \
   --tools llm-review \
   --llm-backend ollama \
   --llm-model qwen3
 
-# Combine with other tools
-uv run python -m osscheck_cli scan \
-  --path mycode/ \
-  --tools semgrep,detect-secrets,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
-  --llm-backend ollama \
-  --llm-model qwen3
-
-# Using Databricks Foundation Models
+# Databricks
 uv run python -m osscheck_cli scan \
   --path mycode/ \
   --tools llm-review \
   --llm-backend databricks
 ```
 
-**Streamlit App:**
-1. Set environment variables for your LLM backend:
-   - Ollama: `OLLAMA_MODEL=qwen3`, `OLLAMA_ENDPOINT=http://localhost:11434`
-   - Databricks: `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_LLM_ENDPOINT`
-2. Start app: `uv run streamlit run streamlit_app_oss/main.py`
-3. Enable "LLM Code Review" in sidebar
-4. Select backend (Databricks or Ollama)
-5. Upload and scan
-
-**Supported Backends:**
-- **Ollama** (local): qwen3, llama3, codellama, or any installed model
-- **Databricks**: Foundation Model serving endpoints
-- Extensible architecture for OpenAI, Anthropic, etc.
-
-**Environment Variables:**
-```bash
-# Ollama (default: qwen3 at localhost:11434)
-export OLLAMA_MODEL=qwen3
-export OLLAMA_ENDPOINT=http://localhost:11434
-
-# Databricks
-export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-export DATABRICKS_TOKEN=your-token
-export DATABRICKS_LLM_ENDPOINT=your-endpoint-name
-```
+See `LLM_CODE_REVIEW.md` for comprehensive documentation.
 
 ## Examples
 
-- Folder scan with per-file reports (Markdown):
-  ```bash
-  uv run python -m osscheck_cli scan \
-    --path test_samples \
-    --format md \
-    --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
-    --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript \
-    --per-file-out-dir out_cli
-  ```
-  This includes `.txt`/`.md` capture and notebook extraction; findings from embedded snippets are mapped back to the source files.
-- Single file (Python + secrets):
-  ```bash
-  uv run python -m osscheck_cli scan --path test_samples/dangerous_python.py --format md --tools semgrep,detect-secrets --semgrep-config p/python
-  ```
-- Batch via list and SARIF output:
-  ```bash
-  git ls-files 'test_samples/*' > files.txt
-  uv run python -m osscheck_cli scan --path . --paths-from files.txt --format sarif --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript
-  ```
+### Example 1: Quick Security Scan
+```bash
+# Scan a project with default tools
+uv run python -m osscheck_cli scan --path myproject/
+```
+
+### Example 2: AI Code Security Scan
+```bash
+# Scan AI-generated code with custom rules + LLM review
+uv run python -m osscheck_cli scan \
+  --path ai_generated_code/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --llm-model qwen3 \
+  --format md
+```
+
+### Example 3: Comprehensive Scan with Reports
+```bash
+# Full scan with all tools and per-file reports
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
+  --semgrep-config p/security-audit,p/owasp-top-ten,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --per-file-out-dir reports/ \
+  --format md
+```
+
+### Example 4: Single File Scan
+```bash
+# Scan a single Python file
+uv run python -m osscheck_cli scan \
+  --path src/main.py \
+  --tools semgrep,detect-secrets,llm-review \
+  --llm-backend ollama
+```
+
+### Example 5: CI/CD Integration
+```bash
+# Fail build if high/critical issues found
+uv run python -m osscheck_cli scan \
+  --path . \
+  --tools semgrep,detect-secrets,sql-strict \
+  --fail-on high \
+  --format sarif \
+  --out report.sarif
+```
+
+## Environment Variables
+
+### Ollama Configuration
+```bash
+export OLLAMA_MODEL=qwen3                      # Model name (optional, default: qwen3)
+export OLLAMA_ENDPOINT=http://localhost:11434  # Ollama endpoint (optional, default: localhost:11434)
+```
+
+### Databricks Configuration
+```bash
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com  # Required
+export DATABRICKS_TOKEN=dapi...                                      # Required
+export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat                     # Required
+```
 
 ## Troubleshooting
 
-- “No issues found” but tools are installed
-  - Check the app Diagnostics section or run `semgrep --version`, `detect-secrets --version`, `sqlfluff --version`, `shellcheck --version`.
-  - If Semgrep can’t fetch packs, the scanner will fallback to `--config=auto` and print an advisory. Consider pointing `--semgrep-config` to local rule paths.
-- Semgrep permission errors in containers/CI
-  - The scanner sets a local writable Semgrep home automatically; if running manually, set `SEMGREP_USER_HOME=$(pwd)/.semgrephome`.
-- ShellCheck not found
-  - Install OS package or rely on `shellcheck-py` provided in `requirements.txt`.
+### "No issues found" but expecting findings
+- Check tool versions: `semgrep --version`, `detect-secrets --version`
+- Verify Semgrep packs are accessible: try `--semgrep-config auto`
+- Check file extensions match tool patterns
+
+### LLM review not working
+- **Ollama**: Verify Ollama is running: `ollama list`
+- **Ollama**: Pull model: `ollama pull qwen3`
+- **Databricks**: Check environment variables are set correctly
+- **Databricks**: Verify endpoint is running: `curl -H "Authorization: Bearer $DATABRICKS_TOKEN" $DATABRICKS_HOST/api/2.0/serving-endpoints/$DATABRICKS_LLM_ENDPOINT`
+
+### ShellCheck not found
+- Install via package manager: `brew install shellcheck` or `apt install shellcheck`
+- Or rely on `shellcheck-py` (already in requirements.txt)
+
+### Semgrep permission errors in containers
+- Set writable home: `export SEMGREP_USER_HOME=$(pwd)/.semgrephome`
+
+## Documentation
+
+- **`semgrep_rules/README.md`** - Custom Semgrep rules documentation
+- **`LLM_CODE_REVIEW.md`** - LLM code review comprehensive guide
+- **`AI_SECURITY_RULES.md`** - AI security features summary
+
+## Requirements
+
+- Python 3.10+
+- Network access to semgrep.dev (for registry packs)
+- Optional: Ollama (for local LLM review)
+- Optional: Databricks workspace with serving endpoint (for cloud LLM review)
+
+## License
+
+See LICENSE file for details.
