@@ -1,0 +1,265 @@
+rules:
+  - id: python-missing-input-validation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def $FUNC($PARAM: str):
+                ...
+                $X = $PARAM
+                ...
+          - pattern: |
+              def $FUNC($PARAM):
+                ...
+                $X = $PARAM
+                ...
+      - pattern-not: |
+          def $FUNC($PARAM):
+            ...
+            if not $PARAM:
+              ...
+            ...
+      - pattern-not: |
+          def $FUNC($PARAM):
+            ...
+            if $PARAM is None:
+              ...
+            ...
+      - pattern-not: |
+          def $FUNC($PARAM):
+            ...
+            assert ...
+            ...
+    message: |
+      Function accepts user input without validation. AI-generated code often omits
+      input validation, which can lead to security vulnerabilities.
+
+      Add validation for:
+      - Empty/null values
+      - Type checking
+      - Length limits
+      - Format validation
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: LOW
+      ai-code-smell: true
+    severity: INFO
+    languages:
+      - python
+
+  - id: python-overly-permissive-exception
+    pattern: |
+      try:
+        ...
+      except:
+        ...
+    message: |
+      Bare except clause catches all exceptions including system exits. This is a
+      common issue in AI-generated code that can hide bugs and security issues.
+
+      Use specific exception types: except ValueError, except KeyError, etc.
+    metadata:
+      category: security
+      technology:
+        - python
+      ai-code-smell: true
+      cwe:
+        - "CWE-396: Declaration of Catch for Generic Exception"
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-todo-fixme-in-security-context
+    patterns:
+      - pattern-either:
+          - pattern-regex: .*TODO.*(?:auth|security|crypto|password|token|secret).*
+          - pattern-regex: .*FIXME.*(?:auth|security|crypto|password|token|secret).*
+          - pattern-regex: .*XXX.*(?:auth|security|crypto|password|token|secret).*
+      - metavariable-regex:
+          metavariable: $TODO
+          regex: .*(TODO|FIXME|XXX).*
+    message: |
+      TODO/FIXME comment in security-sensitive code. AI-generated code often leaves
+      TODO markers in security-critical sections.
+
+      Review and complete security-related code before production deployment.
+    metadata:
+      category: security
+      technology:
+        - python
+      ai-code-smell: true
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-debug-code-left-enabled
+    pattern-either:
+      - pattern: |
+          import pdb
+          ...
+          pdb.set_trace()
+      - pattern: |
+          breakpoint()
+      - pattern: |
+          print("DEBUG:", ...)
+      - pattern: |
+          logging.debug($SECRET)
+      - patterns:
+          - pattern: |
+              logger.debug(...)
+          - metavariable-regex:
+              metavariable: $SECRET
+              regex: .*(password|token|key|secret|credential).*
+    message: |
+      Debug code or statements left in production code. AI-generated code often
+      includes debugging statements that can leak sensitive information.
+
+      Remove debug statements before deployment.
+    metadata:
+      category: security
+      technology:
+        - python
+      ai-code-smell: true
+      cwe:
+        - "CWE-489: Active Debug Code"
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-ai-generated-placeholder
+    pattern-regex: .*(YOUR_API_KEY|YOUR_TOKEN|REPLACE_ME|PLACEHOLDER|your-api-key-here|example\.com|localhost:8080).*
+    message: |
+      Placeholder value detected. AI-generated code often contains placeholder
+      values that should be replaced with actual configuration.
+
+      Replace placeholders with proper configuration management.
+    metadata:
+      category: security
+      technology:
+        - python
+      ai-code-smell: true
+    severity: INFO
+    languages:
+      - python
+      - javascript
+      - typescript
+      - java
+      - go
+
+  - id: python-incomplete-error-handling
+    patterns:
+      - pattern: |
+          try:
+            ...
+          except $EX:
+            pass
+      - pattern-not: |
+          try:
+            ...
+          except $EX:
+            pass  # Intentionally ignored
+    message: |
+      Empty except block silently ignores errors. AI-generated code frequently
+      includes incomplete error handling that can hide failures.
+
+      Either handle the exception properly or add a comment explaining why it's safe to ignore.
+    metadata:
+      category: security
+      technology:
+        - python
+      ai-code-smell: true
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-missing-authentication-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @app.route(...)
+              def $FUNC(...):
+                ...
+          - pattern: |
+              @router.get(...)
+              async def $FUNC(...):
+                ...
+          - pattern: |
+              @router.post(...)
+              async def $FUNC(...):
+                ...
+      - pattern-not: |
+          @app.route(...)
+          @$AUTH_DECORATOR
+          def $FUNC(...):
+            ...
+      - pattern-not: |
+          @app.route(...)
+          def $FUNC(...):
+            ...
+            if not $AUTH:
+              ...
+            ...
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: ^(?!.*public).*
+    message: |
+      API endpoint without authentication check. AI-generated API code often omits
+      authentication, creating security vulnerabilities.
+
+      Add authentication decorator or check: @login_required, @requires_auth, etc.
+    metadata:
+      category: security
+      technology:
+        - python
+        - flask
+        - fastapi
+      owasp:
+        - A07:2021 - Identification and Authentication Failures
+      ai-code-smell: true
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-rate-limiting-missing
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @app.route(...)
+              def $FUNC(...):
+                ...
+                $LLM_CALL
+                ...
+          - pattern: |
+              @router.post(...)
+              async def $FUNC(...):
+                ...
+                $LLM_CALL
+                ...
+      - metavariable-pattern:
+          metavariable: $LLM_CALL
+          patterns:
+            - pattern-either:
+                - pattern: openai.$METHOD(...)
+                - pattern: $CLIENT.chat.completions.create(...)
+                - pattern: $CLIENT.messages.create(...)
+      - pattern-not: |
+          @limiter.limit(...)
+          @app.route(...)
+          def $FUNC(...):
+            ...
+    message: |
+      LLM API endpoint without rate limiting. AI-generated code often omits rate
+      limiting, which can lead to abuse and excessive costs.
+
+      Add rate limiting: @limiter.limit("10 per minute")
+    metadata:
+      category: security
+      technology:
+        - python
+        - llm
+        - api
+      ai-code-smell: true
+    severity: WARNING
+    languages:
+      - python

@@ -1,0 +1,155 @@
+rules:
+  - id: python-prompt-function-with-user-param
+    patterns:
+      - pattern: |
+          def $FUNC($PARAM: str):
+            ...
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: .*(prompt|build|create|construct|format|message|instruction).*
+      - metavariable-regex:
+          metavariable: $PARAM
+          regex: .*(user|input|query|message|text|data|content).*
+    message: |
+      Potential prompt injection risk in function '$FUNC'!
+
+      This function accepts user input parameter '$PARAM' and appears to build
+      prompts or messages for LLMs based on its name. If user input is directly
+      interpolated into prompts without sanitization, attackers can inject
+      malicious instructions.
+
+      Security recommendations:
+      1. Validate and sanitize the '$PARAM' input
+      2. Use structured prompts that separate system instructions from user data
+      3. Implement input filtering for prompt injection patterns
+      4. Consider using allowlists for acceptable input formats
+      5. Add length limits and character restrictions
+
+      Example vulnerable code:
+        def build_prompt(user_input: str):
+          return f"System: Follow rules\\n\\nUser: {user_input}"  # UNSAFE!
+
+      Example safer code:
+        def build_prompt(user_input: str):
+          sanitized = escape_special_chars(user_input)
+          validate_length(sanitized, max_len=1000)
+          return {"role": "system", "content": "Follow rules"},
+                 {"role": "user", "content": sanitized}
+    metadata:
+      category: security
+      technology:
+        - python
+        - llm
+        - ai
+      owasp:
+        - A03:2021 - Injection
+      cwe:
+        - "CWE-77: Improper Neutralization of Special Elements used in a Command"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+      subcategory:
+        - vuln
+      references:
+        - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+        - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+        - https://simonwillison.net/2023/Apr/14/worst-that-can-happen/
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-string-format-in-prompt-function
+    patterns:
+      - pattern-either:
+          - pattern: $VAR.format(...)
+          - pattern: $VAR % ...
+      - pattern-inside: |
+          def $FUNC(...):
+            ...
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: .*(prompt|message|instruction|chat|llm|gpt|ai).*
+    message: |
+      String formatting detected in function '$FUNC' that appears to build LLM prompts.
+      Using .format() or % formatting with user input can enable prompt injection.
+
+      Ensure all user-provided data is sanitized before formatting.
+    metadata:
+      category: security
+      technology:
+        - python
+        - llm
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-docstring-warns-about-prompt-injection
+    patterns:
+      - pattern: |
+          def $FUNC($PARAM):
+            """...$MSG..."""
+            ...
+      - metavariable-regex:
+          metavariable: $MSG
+          regex: .*(untrusted|unsafe|naive|direct|injection|attack|malicious).*
+    message: |
+      Function '$FUNC' has a docstring mentioning security concerns ('$MSG').
+      The docstring itself warns about unsafe handling of input. Review this
+      function for prompt injection or other security vulnerabilities.
+
+      If the code is intentionally vulnerable for testing, add # nosem comment.
+    metadata:
+      category: security
+      technology:
+        - python
+        - llm
+      ai-code-smell: true
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-llm-api-call-in-function
+    patterns:
+      - pattern-either:
+          - pattern: $API.chat.completions.create(...)
+          - pattern: $API.messages.create(...)
+          - pattern: openai.ChatCompletion.create(...)
+          - pattern: $CLIENT.generate(...)
+      - pattern-inside: |
+          def $FUNC($PARAM):
+            ...
+    message: |
+      LLM API call detected in function with parameter '$PARAM'.
+      Ensure user input is validated before being sent to the LLM to prevent
+      prompt injection attacks.
+
+      Add input validation and sanitization.
+    metadata:
+      category: security
+      technology:
+        - python
+        - openai
+        - anthropic
+        - llm
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-comment-warns-prompt-injection
+    pattern-regex: .*#.*(?:prompt.injection|injection.attack|malicious.instruction|override.*directive).*
+    message: |
+      Code comment mentions prompt injection or related attack patterns.
+      Review the surrounding code for proper input validation and sanitization.
+
+      If this is test/example code, add appropriate markers.
+    metadata:
+      category: security
+      technology:
+        - python
+        - llm
+      ai-code-smell: true
+    severity: INFO
+    languages:
+      - python
+      - javascript
+      - typescript

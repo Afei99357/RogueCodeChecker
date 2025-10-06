@@ -91,6 +91,31 @@ Notes:
 - Semgrep packs: if egress to `semgrep.dev` is blocked, the scanner falls back to `--config=auto` and adds a low-severity advisory about reduced coverage.
 - Embedded snippets (SQL/Shell) are extracted from any file (including `.txt`/`.md`) and scanned; findings are mapped back to the source file and line.
 
+## Custom AI Security Rules
+
+RogueCheck includes custom Semgrep rules for AI-specific security issues:
+
+- **Prompt Injection Detection**: Identifies functions that build LLM prompts with unsanitized user input
+- **AI Code Quality**: Detects common issues in AI-generated code (missing validation, debug code, placeholders, etc.)
+
+### Using Custom Rules
+
+```bash
+# Scan with custom AI security rules
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --semgrep-config semgrep_rules/ai-security/ \
+  --format md
+
+# Combine with standard packs
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --format md
+```
+
+See `semgrep_rules/README.md` for full documentation.
+
 ## Examples
 
 - Folder scan with per-file reports (Markdown):
