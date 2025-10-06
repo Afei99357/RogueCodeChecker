@@ -192,6 +192,12 @@ class DatabricksBackend(LLMBackend):
 
     def is_available(self) -> bool:
         """Check if Databricks endpoint is accessible."""
+        # For Databricks Apps, we assume endpoint is available if credentials are set
+        # The actual endpoint check may fail due to permissions/network in Apps runtime
+        if self.endpoint_name and self.workspace_url and self.token:
+            return True
+
+        # Fallback: try to check endpoint accessibility
         try:
             url = f"{self.workspace_url}/api/2.0/serving-endpoints/{self.endpoint_name}"
             headers = {"Authorization": f"Bearer {self.token}"}

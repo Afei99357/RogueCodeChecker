@@ -181,6 +181,24 @@ def scan_with_llm_review(
 
     # Check if backend is available
     if not backend.is_available():
+        # Add more detailed diagnostic for Databricks
+        recommendation = (
+            "Start Ollama service or verify Databricks endpoint configuration."
+        )
+        if hasattr(backend, "endpoint_name"):
+            # Databricks backend - check what's missing
+            import os
+
+            missing = []
+            if not backend.endpoint_name:
+                missing.append("SERVING_ENDPOINT")
+            if not backend.workspace_url:
+                missing.append("DATABRICKS_HOST")
+            if not backend.token:
+                missing.append("DATABRICKS_TOKEN")
+            if missing:
+                recommendation = f"Missing environment variables: {', '.join(missing)}"
+
         findings.append(
             Finding(
                 rule_id="LLM_ENGINE_NOT_READY",
@@ -189,7 +207,7 @@ def scan_with_llm_review(
                 path=relpath(root, os.getcwd()),
                 position=Position(1, 1),
                 snippet=None,
-                recommendation="Start Ollama service or verify Databricks endpoint configuration.",
+                recommendation=recommendation,
                 meta={"engine": "llm"},
             )
         )
