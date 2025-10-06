@@ -15,6 +15,13 @@ from typing import Dict, Optional
 
 import requests
 
+try:
+    from mlflow.deployments import get_deploy_client
+
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
 
 class LLMBackend(ABC):
     """Abstract base class for LLM backends."""
@@ -111,14 +118,13 @@ class DatabricksBackend(LLMBackend):
     """
     Databricks Foundation Models backend.
 
-    Uses Databricks serving endpoints for model inference.
+    Uses Databricks serving endpoints for model inference via MLflow deployments.
+    Automatically authenticates using workspace context when running in Databricks Apps.
     """
 
     def __init__(
         self,
         endpoint_name: Optional[str] = None,
-        workspace_url: Optional[str] = None,
-        token: Optional[str] = None,
         timeout: int = 120,
     ):
         """
@@ -126,88 +132,86 @@ class DatabricksBackend(LLMBackend):
 
         Args:
             endpoint_name: Databricks serving endpoint name
-            workspace_url: Databricks workspace URL
-            token: Databricks personal access token
             timeout: Request timeout in seconds
 
-        Environment variables (if args not provided):
-            DATABRICKS_HOST: Workspace URL
-            DATABRICKS_TOKEN: Access token
+        Environment variables (if endpoint_name not provided):
             SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT: Endpoint name
         """
+        if not MLFLOW_AVAILABLE:
+            raise ImportError(
+                "MLflow is required for Databricks backend. "
+                "Install with: pip install mlflow"
+            )
+
         self.endpoint_name = (
             endpoint_name
             or os.getenv("SERVING_ENDPOINT")
             or os.getenv("DATABRICKS_LLM_ENDPOINT")
         )
-        self.workspace_url = (workspace_url or os.getenv("DATABRICKS_HOST", "")).rstrip(
-            "/"
-        )
-        self.token = token or os.getenv("DATABRICKS_TOKEN")
         self.timeout = timeout
 
-        if not all([self.endpoint_name, self.workspace_url, self.token]):
-            # Debug: show what's actually set
-            debug_info = f"endpoint_name={bool(self.endpoint_name)}, workspace_url={bool(self.workspace_url)}, token={bool(self.token)}"
+        if not self.endpoint_name:
             raise ValueError(
-                f"Databricks backend requires endpoint_name, workspace_url, and token. "
-                f"Current state: {debug_info}. "
-                "Provide via constructor or environment variables: "
-                "DATABRICKS_HOST, DATABRICKS_TOKEN, SERVING_ENDPOINT"
+                "Databricks backend requires endpoint_name. "
+                "Provide via constructor or environment variable: SERVING_ENDPOINT"
             )
+
+        # Get MLflow deploy client (handles authentication automatically in Databricks Apps)
+        try:
+            self.client = get_deploy_client("databricks")
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize Databricks deploy client: {e}")
 
     def generate(
         self, prompt: str, max_tokens: int = 2000, temperature: float = 0.1
     ) -> str:
-        """Generate response using Databricks serving endpoint."""
-        url = f"{self.workspace_url}/serving-endpoints/{self.endpoint_name}/invocations"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "inputs": {"prompt": [prompt]},
-            "params": {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-        }
+        """Generate response using Databricks serving endpoint via MLflow."""
+        # Convert prompt to chat messages format expected by Databricks endpoints
+        messages = [{"role": "user", "content": prompt}]
 
         try:
-            response = requests.post(
-                url, headers=headers, json=payload, timeout=self.timeout
+            response = self.client.predict(
+                endpoint=self.endpoint_name,
+                inputs={
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
             )
-            response.raise_for_status()
-            data = response.json()
 
             # Handle different response formats from Databricks models
-            if "predictions" in data:
-                return data["predictions"][0].strip()
-            elif "choices" in data:
-                return data["choices"][0].get("text", "").strip()
-            else:
-                raise RuntimeError(f"Unexpected Databricks response format: {data}")
+            # Agent/chat endpoints return "messages"
+            if "messages" in response:
+                return response["messages"][-1]["content"].strip()
 
-        except requests.exceptions.RequestException as e:
+            # Foundation models return "choices"
+            elif "choices" in response:
+                choice_message = response["choices"][0]["message"]
+                content = choice_message.get("content", "")
+
+                # Handle list content format
+                if isinstance(content, list):
+                    combined = "".join(
+                        part.get("text", "")
+                        for part in content
+                        if part.get("type") == "text"
+                    )
+                    return combined.strip()
+
+                # Handle string content format
+                if isinstance(content, str):
+                    return content.strip()
+
+            raise RuntimeError(f"Unexpected Databricks response format: {response}")
+
+        except Exception as e:
             raise RuntimeError(f"Databricks API request failed: {e}")
-        except (KeyError, json.JSONDecodeError, IndexError) as e:
-            raise RuntimeError(f"Failed to parse Databricks response: {e}")
 
     def is_available(self) -> bool:
         """Check if Databricks endpoint is accessible."""
-        # For Databricks Apps, we assume endpoint is available if credentials are set
-        # The actual endpoint check may fail due to permissions/network in Apps runtime
-        if self.endpoint_name and self.workspace_url and self.token:
-            return True
-
-        # Fallback: try to check endpoint accessibility
-        try:
-            url = f"{self.workspace_url}/api/2.0/serving-endpoints/{self.endpoint_name}"
-            headers = {"Authorization": f"Bearer {self.token}"}
-            response = requests.get(url, headers=headers, timeout=10)
-            return response.status_code == 200
-        except Exception:
-            return False
+        # If we have an endpoint name and client initialized, assume available
+        # The client handles authentication automatically in Databricks Apps
+        return bool(self.endpoint_name and self.client)
 
 
 def create_backend(backend_type: str = "ollama", **kwargs) -> LLMBackend:
@@ -245,7 +249,7 @@ def get_default_backend() -> LLMBackend:
     Get default LLM backend based on environment.
 
     Priority:
-    1. DATABRICKS_HOST set -> Databricks backend
+    1. SERVING_ENDPOINT set -> Databricks backend
     2. Ollama running -> Ollama backend (qwen3)
     3. Fallback -> Ollama backend (may fail if not running)
 
@@ -253,11 +257,11 @@ def get_default_backend() -> LLMBackend:
         Default LLM backend
     """
     # Check for Databricks configuration
-    if os.getenv("DATABRICKS_HOST") and os.getenv("DATABRICKS_TOKEN"):
+    if os.getenv("SERVING_ENDPOINT") or os.getenv("DATABRICKS_LLM_ENDPOINT"):
         try:
             return create_backend("databricks")
-        except ValueError:
-            pass  # Missing endpoint name, try Ollama
+        except (ValueError, ImportError, RuntimeError):
+            pass  # Missing endpoint name or MLflow, try Ollama
 
     # Default to Ollama
     model = os.getenv("OLLAMA_MODEL", "qwen3")
