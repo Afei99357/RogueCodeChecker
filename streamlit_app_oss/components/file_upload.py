@@ -41,13 +41,6 @@ def render_file_upload() -> List:
     if "uploader_key" not in st.session_state:
         st.session_state.uploader_key = 0
 
-    # Add clear button at the top
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("🗑️ Clear All Files", use_container_width=True):
-            st.session_state.uploader_key += 1
-            st.rerun()
-
     uploaded_files = st.file_uploader(
         "Choose files to scan for security issues",
         accept_multiple_files=True,
@@ -89,7 +82,7 @@ def render_file_upload() -> List:
                 file_types[extension] = file_types.get(extension, 0) + 1
                 total_size += len(file.getvalue())
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
             with col1:
                 st.metric("Valid Files", len(valid_files))
             with col2:
@@ -100,6 +93,11 @@ def render_file_upload() -> List:
                     st.caption(
                         ", ".join(sorted({ext.upper() for ext in file_types.keys()}))
                     )
+            with col4:
+                st.write("")  # spacing
+                if st.button("🗑️ Clear", use_container_width=True):
+                    st.session_state.uploader_key += 1
+                    st.rerun()
 
             if len(file_types) > 1:
                 with st.expander("📊 File Type Breakdown"):
