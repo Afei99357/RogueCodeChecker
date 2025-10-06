@@ -132,6 +132,7 @@ class DatabricksBackend(LLMBackend):
 
         Environment variables (if args not provided):
             DATABRICKS_HOST: Workspace URL
+            DATABRICKS_HOSTNAME: Workspace hostname (Databricks Apps)
             DATABRICKS_TOKEN: Access token
             SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT: Endpoint name
         """
@@ -140,20 +141,28 @@ class DatabricksBackend(LLMBackend):
             or os.getenv("SERVING_ENDPOINT")
             or os.getenv("DATABRICKS_LLM_ENDPOINT")
         )
-        self.workspace_url = (workspace_url or os.getenv("DATABRICKS_HOST", "")).rstrip(
-            "/"
-        )
+        resolved_workspace_url = workspace_url or os.getenv("DATABRICKS_HOST", "")
+        if not resolved_workspace_url:
+            hostname = os.getenv("DATABRICKS_HOSTNAME", "")
+            if hostname:
+                resolved_workspace_url = (
+                    hostname if hostname.startswith("http") else f"https://{hostname}"
+                )
+        self.workspace_url = resolved_workspace_url.rstrip("/")
         self.token = token or os.getenv("DATABRICKS_TOKEN")
         self.timeout = timeout
 
         if not all([self.endpoint_name, self.workspace_url, self.token]):
             # Debug: show what's actually set
-            debug_info = f"endpoint_name={bool(self.endpoint_name)}, workspace_url={bool(self.workspace_url)}, token={bool(self.token)}"
+            debug_info = (
+                f"endpoint_name={bool(self.endpoint_name)}, workspace_url={bool(self.workspace_url)}, "
+                f"token={bool(self.token)}, hostname_fallback={bool(os.getenv('DATABRICKS_HOSTNAME'))}"
+            )
             raise ValueError(
                 f"Databricks backend requires endpoint_name, workspace_url, and token. "
                 f"Current state: {debug_info}. "
                 "Provide via constructor or environment variables: "
-                "DATABRICKS_HOST, DATABRICKS_TOKEN, SERVING_ENDPOINT"
+                "DATABRICKS_HOST (or DATABRICKS_HOSTNAME), DATABRICKS_TOKEN, SERVING_ENDPOINT"
             )
 
     def generate(
