@@ -41,6 +41,13 @@ def render_file_upload() -> List:
     if "uploader_key" not in st.session_state:
         st.session_state.uploader_key = 0
 
+    # Add clear button at the top
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("🗑️ Clear All Files", use_container_width=True):
+            st.session_state.uploader_key += 1
+            st.rerun()
+
     uploaded_files = st.file_uploader(
         "Choose files to scan for security issues",
         accept_multiple_files=True,
@@ -48,12 +55,6 @@ def render_file_upload() -> List:
         help=f"Supported: {', '.join([f'.{ext}' for ext in SUPPORTED_EXTENSIONS])}. Max size: {MAX_FILE_SIZE_MB}MB per file",
         key=f"file_uploader_{st.session_state.uploader_key}",
     )
-
-    # Add clear button if files are uploaded
-    if uploaded_files:
-        if st.button("🗑️ Clear Files"):
-            st.session_state.uploader_key += 1
-            st.rerun()
 
     if uploaded_files:
         valid_files = []
