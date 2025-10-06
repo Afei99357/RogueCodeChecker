@@ -133,9 +133,13 @@ class DatabricksBackend(LLMBackend):
         Environment variables (if args not provided):
             DATABRICKS_HOST: Workspace URL
             DATABRICKS_TOKEN: Access token
-            DATABRICKS_LLM_ENDPOINT: Endpoint name
+            SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT: Endpoint name
         """
-        self.endpoint_name = endpoint_name or os.getenv("DATABRICKS_LLM_ENDPOINT")
+        self.endpoint_name = (
+            endpoint_name
+            or os.getenv("SERVING_ENDPOINT")
+            or os.getenv("DATABRICKS_LLM_ENDPOINT")
+        )
         self.workspace_url = (workspace_url or os.getenv("DATABRICKS_HOST", "")).rstrip(
             "/"
         )
@@ -146,7 +150,7 @@ class DatabricksBackend(LLMBackend):
             raise ValueError(
                 "Databricks backend requires endpoint_name, workspace_url, and token. "
                 "Provide via constructor or environment variables: "
-                "DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_LLM_ENDPOINT"
+                "DATABRICKS_HOST, DATABRICKS_TOKEN, SERVING_ENDPOINT"
             )
 
     def generate(

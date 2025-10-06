@@ -98,7 +98,7 @@ class ScannerService:
                                 path=".",
                                 position=Position(1, 1),
                                 snippet=None,
-                                recommendation="Check environment variables: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_LLM_ENDPOINT",
+                                recommendation="Check environment variables: DATABRICKS_HOST, DATABRICKS_TOKEN, SERVING_ENDPOINT",
                                 meta={"engine": "llm"},
                             )
                         )

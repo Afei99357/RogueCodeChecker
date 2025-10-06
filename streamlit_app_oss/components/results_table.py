@@ -49,6 +49,7 @@ def render_results(results: Dict[str, Any], scanner_service) -> None:
     if diagnostics:
         _render_diagnostics(diagnostics, scanner_service)
 
+
 def _render_diagnostics(diags: List, scanner_service) -> None:
     with st.expander("🛠 Engine Diagnostics", expanded=False):
         st.caption("Environment or engine advisories that are not tied to a file.")
@@ -69,16 +70,28 @@ def render_summary_metrics(summary: Dict[str, Any]) -> None:
         st.metric("Total Issues", summary["total_issues"])
     with col2:
         critical_count = summary["by_severity"]["critical"]
-        st.metric("Critical", critical_count, delta=f"-{critical_count}" if critical_count > 0 else None, delta_color="inverse")
+        st.metric(
+            "Critical",
+            critical_count,
+            delta=f"-{critical_count}" if critical_count > 0 else None,
+            delta_color="inverse",
+        )
     with col3:
         high_count = summary["by_severity"]["high"]
-        st.metric("High Severity", high_count, delta=f"-{high_count}" if high_count > 0 else None, delta_color="inverse")
+        st.metric(
+            "High Severity",
+            high_count,
+            delta=f"-{high_count}" if high_count > 0 else None,
+            delta_color="inverse",
+        )
     with col4:
         st.metric("Files Affected", summary["files_with_issues"])
     severity_data = summary["by_severity"]
     non_zero = {k: v for k, v in severity_data.items() if v > 0}
     if non_zero:
-        severity_text = " | ".join([f"{k.capitalize()}: {v}" for k, v in non_zero.items()])
+        severity_text = " | ".join(
+            [f"{k.capitalize()}: {v}" for k, v in non_zero.items()]
+        )
         st.caption(f"Breakdown: {severity_text}")
 
 
@@ -116,7 +129,14 @@ def render_findings_table(
         filtered_df = filtered_df[filtered_df["File"].isin(file_filter)]
     if len(filtered_df) != len(df):
         st.caption(f"Showing {len(filtered_df)} of {len(df)} issues")
-    display_columns = ["File", "Rule ID", "Severity", "Line", "Message", "Recommendation"]
+    display_columns = [
+        "File",
+        "Rule ID",
+        "Severity",
+        "Line",
+        "Message",
+        "Recommendation",
+    ]
 
     # View mode: Combined table or per-file tables
     view_mode = st.radio(
@@ -126,6 +146,7 @@ def render_findings_table(
         horizontal=True,
         help="Switch between a single combined table or one table per file",
     )
+
     def style_severity(val):
         colors = {
             "critical": "background-color: #ffebee; color: #c62828",
@@ -134,21 +155,22 @@ def render_findings_table(
             "low": "background-color: #f3e5f5; color: #7b1fa2",
         }
         return colors.get(val, "")
+
     if not filtered_df.empty:
         if view_mode == "Combined":
-            styled_df = filtered_df[display_columns].style.applymap(
+            styled_df = filtered_df[display_columns].style.map(
                 style_severity, subset=["Severity"]
             )
-            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            st.dataframe(styled_df, width="stretch", hide_index=True)
         else:
             # Per-file tables
             for file_name in sorted(filtered_df["File"].unique()):
                 sub = filtered_df[filtered_df["File"] == file_name]
                 st.markdown(f"**File:** {file_name} — {len(sub)} issue(s)")
-                styled_df = sub[display_columns].style.applymap(
+                styled_df = sub[display_columns].style.map(
                     style_severity, subset=["Severity"]
                 )
-                st.dataframe(styled_df, use_container_width=True, hide_index=True)
+                st.dataframe(styled_df, width="stretch", hide_index=True)
 
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -192,7 +214,9 @@ def render_findings_table(
 def render_file_breakdown(findings_by_file: Dict[str, List]) -> None:
     if not findings_by_file or len(findings_by_file) <= 1:
         return
-    with st.expander(f"📁 Issues by File ({len(findings_by_file)} files)", expanded=False):
+    with st.expander(
+        f"📁 Issues by File ({len(findings_by_file)} files)", expanded=False
+    ):
         for filename, file_findings in findings_by_file.items():
             severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
             for finding in file_findings:
@@ -208,7 +232,9 @@ def render_file_breakdown(findings_by_file: Dict[str, List]) -> None:
                 emoji = "🟡"
             else:
                 emoji = "⚪"
-            st.write(f"{emoji} **{filename}** — {total_issues} issues (Critical: {critical}, High: {high})")
+            st.write(
+                f"{emoji} **{filename}** — {total_issues} issues (Critical: {critical}, High: {high})"
+            )
 
 
 def get_severity_color(severity: str) -> str:
