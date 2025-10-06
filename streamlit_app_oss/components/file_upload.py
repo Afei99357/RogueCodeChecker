@@ -37,12 +37,23 @@ def render_file_upload() -> List:
     ]
     MAX_FILE_SIZE_MB = 10
 
+    # Initialize uploader key in session state
+    if "uploader_key" not in st.session_state:
+        st.session_state.uploader_key = 0
+
     uploaded_files = st.file_uploader(
         "Choose files to scan for security issues",
         accept_multiple_files=True,
         type=SUPPORTED_EXTENSIONS,
         help=f"Supported: {', '.join([f'.{ext}' for ext in SUPPORTED_EXTENSIONS])}. Max size: {MAX_FILE_SIZE_MB}MB per file",
+        key=f"file_uploader_{st.session_state.uploader_key}",
     )
+
+    # Add clear button if files are uploaded
+    if uploaded_files:
+        if st.button("🗑️ Clear Files"):
+            st.session_state.uploader_key += 1
+            st.rerun()
 
     if uploaded_files:
         valid_files = []
@@ -70,7 +81,7 @@ def render_file_upload() -> List:
                 st.write(f"- {invalid_file}")
 
         if valid_files:
-            file_types = {}
+            file_types: dict = {}
             total_size = 0
             for file in valid_files:
                 extension = file.name.split(".")[-1].lower()
