@@ -187,8 +187,6 @@ def scan_with_llm_review(
         )
         if hasattr(backend, "endpoint_name"):
             # Databricks backend - check what's missing
-            import os
-
             missing = []
             if not backend.endpoint_name:
                 missing.append("SERVING_ENDPOINT")
