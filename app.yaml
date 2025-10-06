@@ -6,4 +6,4 @@ command: [
 
 env:
   - name: "SERVING_ENDPOINT"
-    valueFrom: "serving-endpoint"
+    value: "databricks-claude-sonnet-4"
