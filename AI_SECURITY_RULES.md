@@ -113,13 +113,70 @@ uv run python -m osscheck_cli scan \
    - Successful detection of prompt injection
    - Clear, actionable findings with remediation guidance
 
-## Next Steps (Optional Enhancements)
+## Phase 2: LLM-Based Code Review ✅ COMPLETE
 
-### Phase 2: LLM-Based Code Review
-Add an AI code reviewer that uses Claude/GPT-4 to analyze code semantically for:
-- Business logic flaws
-- Context-specific vulnerabilities
-- Complex injection patterns
+**Status**: ✅ Implemented and tested
+
+### What Was Built
+
+Added semantic security analysis using local (Ollama) or cloud (Databricks) LLMs:
+
+**Files Created:**
+- `roguecheck/llm_backends.py` - Backend abstraction layer
+- `roguecheck/oss_llm_reviewer.py` - LLM security scanner
+- `LLM_CODE_REVIEW.md` - Comprehensive documentation
+
+**Features:**
+- Dual backend support: Ollama (CLI) + Databricks (Streamlit)
+- Semantic analysis of code for security vulnerabilities
+- Structured prompt engineering for consistent findings
+- Graceful error handling with diagnostic findings
+- Easy model swapping (qwen3 → llama3 → codellama, etc.)
+
+### Integration
+
+**CLI:**
+```bash
+# LLM review only
+uv run python -m osscheck_cli scan \
+  --path test_samples/prompt_injection_example.py \
+  --tools llm-review \
+  --llm-backend ollama \
+  --llm-model qwen3
+
+# Combined with custom Semgrep rules
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --llm-backend ollama
+```
+
+**Streamlit:**
+- Added "Enable LLM Code Review" checkbox in sidebar
+- Backend selection (databricks/ollama)
+- Environment variable configuration
+- Diagnostic findings for failed LLM initialization
+
+### Test Results
+
+Successfully detected prompt injection in `test_samples/prompt_injection_example.py`:
+
+```
+[CRITICAL] LLM_REVIEW:PROMPT_INJECTION
+The `build_prompt` function directly appends untrusted user input into the
+system prompt without sanitization. This enables attackers to inject arbitrary
+commands or bypass security constraints.
+```
+
+### Architecture Benefits
+
+1. **Flexibility**: Easy to swap models or add new backends (OpenAI, Anthropic)
+2. **Privacy**: Local Ollama option keeps code private
+3. **Enterprise**: Databricks integration for production deployments
+4. **Complementary**: Works alongside pattern-based tools for comprehensive coverage
+
+## Next Steps (Future Enhancements)
 
 ### Phase 3: Runtime Detection
 Integrate runtime prompt injection scanner (Rebuff/Vigil) for production monitoring.
@@ -130,15 +187,23 @@ Create automated reports showing:
 - Vulnerability trends
 - Risk scoring
 
+### Phase 5: LLM Enhancements
+- Parallel file scanning for better performance
+- Caching of LLM responses
+- Custom prompt templates per project
+- Model fine-tuning on security datasets
+
 ## Documentation
 
-- Main README: `README.md` (updated)
+- Main README: `README.md` (updated with both Phase 1 & 2)
 - Custom Rules Guide: `semgrep_rules/README.md` (comprehensive)
+- LLM Review Guide: `LLM_CODE_REVIEW.md` (new - comprehensive)
 - Repository Guidelines: `AGENTS.md`
 - This Summary: `AI_SECURITY_RULES.md`
 
 ## Files Modified/Created
 
+### Phase 1: Custom Semgrep Rules
 ```
 semgrep_rules/
 ├── README.md (new)
@@ -148,14 +213,29 @@ semgrep_rules/
 
 test_samples/
 └── prompt_injection_example.py (new)
+```
 
-README.md (updated)
-AGENTS.md (new)
-AI_SECURITY_RULES.md (this file)
+### Phase 2: LLM-Based Code Review
+```
+roguecheck/
+├── llm_backends.py (new - backend abstraction)
+└── oss_llm_reviewer.py (new - LLM scanner)
+
+roguecheck/oss_runner.py (modified - add llm-review tool)
+osscheck_cli/main.py (modified - add --llm-backend, --llm-model)
+
+streamlit_app_oss/
+├── components/config_panel.py (modified - add LLM review UI)
+└── services/scanner_service.py (modified - integrate LLM backend)
+
+LLM_CODE_REVIEW.md (new - comprehensive guide)
+README.md (updated - document LLM review feature)
+AI_SECURITY_RULES.md (updated - Phase 2 status)
 ```
 
 ## Command Reference
 
+### Phase 1: Custom Semgrep Rules
 ```bash
 # Test prompt injection detection
 semgrep --config semgrep_rules/ai-security/prompt-injection.yaml \
@@ -166,12 +246,43 @@ uv run python -m osscheck_cli scan \
   --path . \
   --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
   --per-file-out-dir out_cli
+```
 
-# Quick test
-bash scripts/scan_local.sh test_samples --packs semgrep_rules/ai-security/
+### Phase 2: LLM-Based Code Review
+```bash
+# LLM review only (Ollama)
+uv run python -m osscheck_cli scan \
+  --path test_samples/prompt_injection_example.py \
+  --tools llm-review \
+  --llm-backend ollama \
+  --llm-model qwen3
+
+# Combined: Semgrep rules + LLM review
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --llm-model qwen3 \
+  --format md
+
+# Full security scan (all tools + custom rules + LLM)
+uv run python -m osscheck_cli scan \
+  --path myproject/ \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
+  --semgrep-config p/security-audit,p/owasp-top-ten,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --per-file-out-dir out_cli
 ```
 
 ---
 
-**Status**: ✅ Complete and tested
+**Status**: ✅ **Phase 1 & 2 Complete and Tested**
 **Ready for**: Security team review and production use
+
+**Summary:**
+- ✅ 13 custom Semgrep rules for AI-specific security issues
+- ✅ LLM-based semantic code review with dual backend support
+- ✅ CLI and Streamlit integration
+- ✅ Comprehensive documentation
+- ✅ Successfully tested on prompt injection examples

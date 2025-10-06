@@ -21,7 +21,7 @@ class ScannerService:
         if not uploaded_files:
             return self._empty_results()
 
-        results = {
+        results: Dict[str, Any] = {
             "findings_by_file": {},
             "all_findings": [],  # code issues only
             "diagnostics": [],  # engine advisories (OSS_ENGINE_*)
@@ -73,6 +73,36 @@ class ScannerService:
                 semgrep_packs = ",".join(sorted(merged))
                 # Always enable strict SQL checks by default
                 tools = list(tools) + ["sql-strict"]
+
+                # Add LLM review if enabled
+                llm_backend = None
+                if self.config.get("enable_llm_review", False):
+                    tools = list(tools) + ["llm-review"]
+                    from roguecheck.llm_backends import create_backend
+
+                    try:
+                        backend_type = self.config.get("llm_backend", "databricks")
+                        if backend_type == "databricks":
+                            llm_backend = create_backend("databricks")
+                        elif backend_type == "ollama":
+                            llm_backend = create_backend("ollama")
+                    except Exception as e:
+                        # Add diagnostic finding if LLM backend fails
+                        from roguecheck.models import Finding, Position
+
+                        results["diagnostics"].append(
+                            Finding(
+                                rule_id="LLM_BACKEND_INIT_FAILED",
+                                severity="low",
+                                message=f"Failed to initialize LLM backend: {e}",
+                                path=".",
+                                position=Position(1, 1),
+                                snippet=None,
+                                recommendation="Check environment variables: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_LLM_ENDPOINT",
+                                meta={"engine": "llm"},
+                            )
+                        )
+
                 # Pass explicit file list so tools target exactly the uploaded files
                 all_findings = run_oss_tools(
                     root=temp_dir,
@@ -80,6 +110,7 @@ class ScannerService:
                     tools=list(tools),
                     semgrep_config=semgrep_packs,
                     files=file_paths,
+                    llm_backend=llm_backend,
                 )
                 filtered: List[Finding] = []
                 for finding in all_findings:

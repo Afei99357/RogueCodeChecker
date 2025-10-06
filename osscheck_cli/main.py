@@ -34,7 +34,7 @@ def main(argv=None):
     sp.add_argument(
         "--tools",
         default="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict",
-        help="Comma-separated list of tools to run",
+        help="Comma-separated list of tools to run (semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review)",
     )
     sp.add_argument(
         "--no-sql-strict",
@@ -50,6 +50,17 @@ def main(argv=None):
         "--fail-on", choices=["low", "medium", "high", "critical"], default="high"
     )
     sp.add_argument("--out", help="write report to file instead of stdout")
+    sp.add_argument(
+        "--llm-backend",
+        default="ollama",
+        choices=["ollama", "databricks"],
+        help="LLM backend to use for llm-review tool (default: ollama)",
+    )
+    sp.add_argument(
+        "--llm-model",
+        default="qwen3",
+        help="LLM model name for Ollama backend (default: qwen3)",
+    )
 
     args = p.parse_args(argv)
 
@@ -73,6 +84,21 @@ def main(argv=None):
         elif "sql-strict" not in selected:
             selected.append("sql-strict")
 
+        # Create LLM backend if llm-review is selected
+        llm_backend = None
+        if "llm-review" in selected:
+            from roguecheck.llm_backends import create_backend
+
+            try:
+                if args.llm_backend == "ollama":
+                    llm_backend = create_backend("ollama", model=args.llm_model)
+                elif args.llm_backend == "databricks":
+                    llm_backend = create_backend("databricks")
+            except Exception as e:
+                print(
+                    f"Warning: Failed to initialize LLM backend: {e}", file=sys.stderr
+                )
+
         from roguecheck.oss_runner import run_oss_tools
 
         findings = run_oss_tools(
@@ -81,12 +107,13 @@ def main(argv=None):
             tools=selected,
             semgrep_config=args.semgrep_config,
             files=files,
+            llm_backend=llm_backend,
         )
 
         out = _render(findings, args.format)
         if args.out:
-            with open(args.out, "w", encoding="utf-8") as f:
-                f.write(out)
+            with open(args.out, "w", encoding="utf-8") as fout:
+                fout.write(out)
         else:
             print(out)
 
@@ -95,8 +122,8 @@ def main(argv=None):
             os.makedirs(args.per_file_out_dir, exist_ok=True)
             # group findings by file path
             by_file: dict[str, list[Finding]] = {}
-            for f in findings:
-                by_file.setdefault(f.path, []).append(f)
+            for finding in findings:
+                by_file.setdefault(finding.path, []).append(finding)
 
             # Determine input files to ensure every input gets a report, even with no findings
             input_files_rel: list[str] = []

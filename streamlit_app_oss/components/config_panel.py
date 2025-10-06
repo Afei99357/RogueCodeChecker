@@ -84,6 +84,33 @@ def render_config_panel() -> Dict:
         help="Registry packs like p/python,p/security-audit,p/javascript or 'auto'",
     )
 
+    st.divider()
+
+    # LLM Review Settings
+    st.subheader("🤖 LLM Code Review")
+    config["enable_llm_review"] = st.checkbox(
+        "Enable LLM Code Review",
+        value=False,
+        help="Use LLM to perform semantic security analysis (requires Databricks endpoint)",
+    )
+
+    if config["enable_llm_review"]:
+        config["llm_backend"] = st.selectbox(
+            "LLM Backend",
+            options=["databricks", "ollama"],
+            index=0,
+            help="Streamlit app uses Databricks Foundation Models by default",
+        )
+
+        if config["llm_backend"] == "databricks":
+            st.caption(
+                "Configure via environment variables: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_LLM_ENDPOINT"
+            )
+        else:
+            st.caption(
+                "Configure via environment variables: OLLAMA_MODEL, OLLAMA_ENDPOINT"
+            )
+
     # Display current configuration summary
     st.subheader("📊 Current Settings")
 
@@ -94,6 +121,10 @@ def render_config_panel() -> Dict:
     settings_summary.append(f"• **File limit:** {config['max_file_size_mb']} MB")
     settings_summary.append(f"• **Engine:** {config['engine']}")
     settings_summary.append(f"• **Semgrep packs:** {config['semgrep_packs']}")
+    if config.get("enable_llm_review"):
+        settings_summary.append(
+            f"• **LLM Review:** Enabled ({config.get('llm_backend', 'databricks')}) 🤖"
+        )
     if config.get("sql_strict"):
         settings_summary.append("• **SQL strict:** Enabled")
 

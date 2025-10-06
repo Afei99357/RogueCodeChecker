@@ -91,14 +91,16 @@ Notes:
 - Semgrep packs: if egress to `semgrep.dev` is blocked, the scanner falls back to `--config=auto` and adds a low-severity advisory about reduced coverage.
 - Embedded snippets (SQL/Shell) are extracted from any file (including `.txt`/`.md`) and scanned; findings are mapped back to the source file and line.
 
-## Custom AI Security Rules
+## AI Security Features
 
-RogueCheck includes custom Semgrep rules for AI-specific security issues:
+RogueCheck provides comprehensive AI security scanning through two complementary approaches:
+
+### 1. Custom Semgrep Rules (Pattern-Based)
+
+Custom Semgrep rules for AI-specific security issues:
 
 - **Prompt Injection Detection**: Identifies functions that build LLM prompts with unsanitized user input
 - **AI Code Quality**: Detects common issues in AI-generated code (missing validation, debug code, placeholders, etc.)
-
-### Using Custom Rules
 
 ```bash
 # Scan with custom AI security rules
@@ -115,6 +117,60 @@ uv run python -m osscheck_cli scan \
 ```
 
 See `semgrep_rules/README.md` for full documentation.
+
+### 2. LLM-Based Code Review (Semantic Analysis)
+
+Uses local or cloud LLMs to perform semantic security analysis, detecting issues that pattern-based tools may miss:
+
+**CLI Usage:**
+```bash
+# Using local Ollama with Qwen3 (default)
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --tools llm-review \
+  --llm-backend ollama \
+  --llm-model qwen3
+
+# Combine with other tools
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --tools semgrep,detect-secrets,llm-review \
+  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --llm-backend ollama \
+  --llm-model qwen3
+
+# Using Databricks Foundation Models
+uv run python -m osscheck_cli scan \
+  --path mycode/ \
+  --tools llm-review \
+  --llm-backend databricks
+```
+
+**Streamlit App:**
+1. Set environment variables for your LLM backend:
+   - Ollama: `OLLAMA_MODEL=qwen3`, `OLLAMA_ENDPOINT=http://localhost:11434`
+   - Databricks: `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_LLM_ENDPOINT`
+2. Start app: `uv run streamlit run streamlit_app_oss/main.py`
+3. Enable "LLM Code Review" in sidebar
+4. Select backend (Databricks or Ollama)
+5. Upload and scan
+
+**Supported Backends:**
+- **Ollama** (local): qwen3, llama3, codellama, or any installed model
+- **Databricks**: Foundation Model serving endpoints
+- Extensible architecture for OpenAI, Anthropic, etc.
+
+**Environment Variables:**
+```bash
+# Ollama (default: qwen3 at localhost:11434)
+export OLLAMA_MODEL=qwen3
+export OLLAMA_ENDPOINT=http://localhost:11434
+
+# Databricks
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=your-token
+export DATABRICKS_LLM_ENDPOINT=your-endpoint-name
+```
 
 ## Examples
 
