@@ -86,7 +86,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3 \
   --format md

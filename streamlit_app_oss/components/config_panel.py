@@ -90,7 +90,7 @@ def render_config_panel() -> Dict:
     st.subheader("🤖 LLM Code Review")
     config["enable_llm_review"] = st.checkbox(
         "Enable LLM Code Review",
-        value=False,
+        value=True,
         help="Use LLM to perform semantic security analysis (requires Databricks endpoint)",
     )
 

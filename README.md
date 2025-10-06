@@ -55,7 +55,7 @@ uv run python -m osscheck_cli scan --path test_samples
 ```bash
 uv run python -m osscheck_cli scan \
   --path myproject/ \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --format md
 ```
 
@@ -107,7 +107,7 @@ uv run python -m osscheck_cli scan \
 # Use custom AI security rules for prompt injection detection
 uv run python -m osscheck_cli scan \
   --path myproject/ \
-  --semgrep-config semgrep_rules/ai-security/ \
+  --semgrep-config roguecheck/rules/ \
   --format md
 ```
 
@@ -144,7 +144,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3 \
   --per-file-out-dir reports/
@@ -194,7 +194,7 @@ Navigate to `http://localhost:8501`
 
 1. **Configure Settings (Sidebar)**
    - Set priority focus (low/medium/high/critical)
-   - Add custom Semgrep packs: `semgrep_rules/ai-security/`
+   - Add custom Semgrep packs: `roguecheck/rules/`
    - Enable "LLM Code Review" and select backend
 
 2. **Upload Files**
@@ -211,7 +211,7 @@ Navigate to `http://localhost:8501`
 **Scenario: Scan AI-generated Python code with LLM review**
 
 1. Start app: `uv run streamlit run streamlit_app_oss/main.py`
-2. Sidebar → "Semgrep Packs": Add `semgrep_rules/ai-security/`
+2. Sidebar → "Semgrep Packs": Add `roguecheck/rules/`
 3. Sidebar → Check "Enable LLM Code Review"
 4. Sidebar → Select backend: `databricks` or `ollama`
 5. Upload your Python files
@@ -261,7 +261,7 @@ RogueCheck includes specialized scanning for AI/LLM security:
 
 ### Custom Semgrep Rules
 
-**Location:** `semgrep_rules/ai-security/`
+**Location:** `roguecheck/rules/`
 
 **What it detects:**
 - Functions building prompts with user input
@@ -277,10 +277,10 @@ RogueCheck includes specialized scanning for AI/LLM security:
 ```bash
 uv run python -m osscheck_cli scan \
   --path mycode/ \
-  --semgrep-config semgrep_rules/ai-security/
+  --semgrep-config roguecheck/rules/
 ```
 
-See `semgrep_rules/README.md` for full rule documentation.
+See `roguecheck/rules/README.md` for full rule documentation.
 
 ### LLM-Based Code Review
 
@@ -332,7 +332,7 @@ uv run python -m osscheck_cli scan --path myproject/
 uv run python -m osscheck_cli scan \
   --path ai_generated_code/ \
   --tools semgrep,detect-secrets,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3 \
   --format md
@@ -344,7 +344,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
-  --semgrep-config p/security-audit,p/owasp-top-ten,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,p/owasp-top-ten,roguecheck/rules/ \
   --llm-backend ollama \
   --per-file-out-dir reports/ \
   --format md

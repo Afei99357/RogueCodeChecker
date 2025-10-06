@@ -4,8 +4,6 @@ This directory contains custom Semgrep rules specifically designed to detect sec
 
 ## Rules Overview
 
-### AI Security Rules (`ai-security/`)
-
 #### Prompt Injection Detection (`prompt-injection.yaml`)
 
 Detects potential prompt injection vulnerabilities in LLM integrations:
@@ -54,33 +52,33 @@ Scan with custom rules:
 # Use only custom rules
 uv run python -m osscheck_cli scan \
   --path mycode/ \
-  --semgrep-config semgrep_rules/ai-security/ \
+  --semgrep-config roguecheck/rules/ \
   --format md
 
 # Combine with registry packs
 uv run python -m osscheck_cli scan \
   --path mycode/ \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --format md
 ```
 
 ### With Streamlit App
 
 1. Start the app: `uv run streamlit run streamlit_app_oss/main.py`
-2. In the sidebar under "Semgrep Packs", add: `semgrep_rules/ai-security/`
+2. In the sidebar under "Semgrep Packs", add: `roguecheck/rules/`
 3. Upload files and scan
 
 ### Directly with Semgrep
 
 ```bash
 # Scan specific file
-semgrep --config semgrep_rules/ai-security/ myfile.py
+semgrep --config roguecheck/rules/ myfile.py
 
 # Scan directory
-semgrep --config semgrep_rules/ai-security/ src/
+semgrep --config roguecheck/rules/ src/
 
 # Combine with other configs
-semgrep --config p/python --config semgrep_rules/ai-security/ .
+semgrep --config p/python --config roguecheck/rules/ .
 ```
 
 ## Test Files
@@ -89,11 +87,11 @@ Test the rules against the provided examples:
 
 ```bash
 # Test prompt injection detection
-semgrep --config semgrep_rules/ai-security/prompt-injection.yaml \
+semgrep --config roguecheck/rules/prompt-injection.yaml \
   test_samples/prompt_injection_example.py
 
 # Test AI code quality rules
-semgrep --config semgrep_rules/ai-security/ai-code-quality.yaml \
+semgrep --config roguecheck/rules/ai-code-quality.yaml \
   test_samples/dangerous_python.py
 ```
 
@@ -111,7 +109,7 @@ python-prompt-function-with-user-param
 
 ### Adding New Rules
 
-1. Create or edit YAML files in `semgrep_rules/ai-security/`
+1. Create or edit YAML files in `roguecheck/rules/`
 2. Follow Semgrep rule syntax: https://semgrep.dev/docs/writing-rules/rule-syntax
 3. Test your rule:
    ```bash

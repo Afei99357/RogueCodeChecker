@@ -7,7 +7,7 @@ Custom Semgrep rules have been added to RogueCheck to detect security issues spe
 ## What Was Created
 
 ### 1. Prompt Injection Detection Rules
-**Location**: `semgrep_rules/ai-security/prompt-injection.yaml`
+**Location**: `roguecheck/rules/prompt-injection.yaml`
 
 **Rules**:
 - `python-prompt-function-with-user-param` (ERROR) - Detects functions building prompts with user input
@@ -17,7 +17,7 @@ Custom Semgrep rules have been added to RogueCheck to detect security issues spe
 - `python-comment-warns-prompt-injection` (INFO) - Comments mentioning injection attacks
 
 ### 2. AI Code Quality Rules
-**Location**: `semgrep_rules/ai-security/ai-code-quality.yaml`
+**Location**: `roguecheck/rules/ai-code-quality.yaml`
 
 **Rules**:
 - `python-missing-input-validation` (INFO) - Functions without input validation
@@ -37,7 +37,7 @@ File: `test_samples/prompt_injection_example.py`
 ```bash
 $ uv run python -m osscheck_cli scan \
   --path test_samples/prompt_injection_example.py \
-  --semgrep-config semgrep_rules/ai-security/
+  --semgrep-config roguecheck/rules/
 ```
 
 **Result**: ✅ **DETECTED**
@@ -56,19 +56,19 @@ uv run python -m osscheck_cli scan --path mycode/
 # With custom AI security rules
 uv run python -m osscheck_cli scan \
   --path mycode/ \
-  --semgrep-config semgrep_rules/ai-security/
+  --semgrep-config roguecheck/rules/
 
 # Combined with standard packs
 uv run python -m osscheck_cli scan \
   --path mycode/ \
-  --semgrep-config p/security-audit,p/python,semgrep_rules/ai-security/
+  --semgrep-config p/security-audit,p/python,roguecheck/rules/
 ```
 
 ### Streamlit App
 
 1. Start: `uv run streamlit run streamlit_app_oss/main.py`
 2. Sidebar → "Semgrep Packs" field
-3. Add: `semgrep_rules/ai-security/` (or combine with other packs)
+3. Add: `roguecheck/rules/` (or combine with other packs)
 4. Upload files and scan
 
 ## Coverage Matrix
@@ -148,7 +148,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --llm-backend ollama
 ```
 
@@ -238,13 +238,13 @@ AI_SECURITY_RULES.md (updated - Phase 2 status)
 ### Phase 1: Custom Semgrep Rules
 ```bash
 # Test prompt injection detection
-semgrep --config semgrep_rules/ai-security/prompt-injection.yaml \
+semgrep --config roguecheck/rules/prompt-injection.yaml \
   test_samples/prompt_injection_example.py
 
 # Full scan with custom rules
 uv run python -m osscheck_cli scan \
   --path . \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --per-file-out-dir out_cli
 ```
 
@@ -261,7 +261,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,llm-review \
-  --semgrep-config p/security-audit,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3 \
   --format md
@@ -270,7 +270,7 @@ uv run python -m osscheck_cli scan \
 uv run python -m osscheck_cli scan \
   --path myproject/ \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
-  --semgrep-config p/security-audit,p/owasp-top-ten,semgrep_rules/ai-security/ \
+  --semgrep-config p/security-audit,p/owasp-top-ten,roguecheck/rules/ \
   --llm-backend ollama \
   --per-file-out-dir out_cli
 ```
