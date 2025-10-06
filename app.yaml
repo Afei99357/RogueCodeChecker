@@ -4,12 +4,6 @@ command: [
   "streamlit_app_oss/main.py"
 ]
 
-resources:
-  - name: serving-endpoint
-    serving_endpoint:
-      name: databricks-claude-sonnet-4
-      permission_level: CAN_QUERY
-
 env:
   - name: "SERVING_ENDPOINT"
-    valueFrom: serving-endpoint
+    valueFrom: "serving-endpoint"
