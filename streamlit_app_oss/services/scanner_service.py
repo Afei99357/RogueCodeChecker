@@ -114,7 +114,10 @@ class ScannerService:
                 )
                 filtered: List[Finding] = []
                 for finding in all_findings:
-                    if str(finding.rule_id).startswith("OSS_ENGINE_"):
+                    # Diagnostics: OSS_ENGINE_* and LLM_* errors
+                    if str(finding.rule_id).startswith("OSS_ENGINE_") or str(
+                        finding.rule_id
+                    ).startswith("LLM_ENGINE_"):
                         results["diagnostics"].append(finding)
                         continue
                     filename = finding.path
