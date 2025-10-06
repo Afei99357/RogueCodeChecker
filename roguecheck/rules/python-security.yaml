@@ -1,0 +1,143 @@
+rules:
+  - id: python-dangerous-eval
+    patterns:
+      - pattern: eval(...)
+    message: |
+      Detected use of 'eval()' with potentially untrusted input. This is extremely dangerous
+      as it allows arbitrary code execution. Avoid eval() entirely or use ast.literal_eval()
+      for safe evaluation of literals.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-dangerous-exec
+    patterns:
+      - pattern: exec(...)
+    message: |
+      Detected use of 'exec()' with potentially untrusted input. This allows arbitrary code
+      execution and should be avoided. Consider safer alternatives.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-os-system-injection
+    patterns:
+      - pattern: os.system(...)
+    message: |
+      Detected use of 'os.system()' which can lead to command injection vulnerabilities.
+      Use subprocess.run() with a list of arguments instead, and avoid shell=True.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-subprocess-shell-true
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+    message: |
+      Detected subprocess call with shell=True. This can lead to command injection if user
+      input is involved. Use shell=False and pass command as a list instead.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-pickle-load
+    patterns:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+    message: |
+      Detected use of pickle.load() which can execute arbitrary code. Never unpickle data
+      from untrusted sources. Consider using json or other safer serialization formats.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-requests-verify-false
+    patterns:
+      - pattern: requests.$METHOD(..., verify=False, ...)
+    message: |
+      Detected requests call with verify=False, which disables SSL certificate verification.
+      This makes the connection vulnerable to man-in-the-middle attacks. Remove verify=False.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: HIGH
+    severity: ERROR
+    languages:
+      - python
+
+  - id: python-hardcoded-secret-in-environ
+    patterns:
+      - pattern-either:
+          - pattern: os.environ[$KEY] = $VALUE
+          - pattern: os.putenv($KEY, $VALUE)
+    message: |
+      Detected hardcoded value being set in environment variables. This may expose secrets
+      in logs or process listings. Load secrets from secure vaults instead.
+    metadata:
+      category: security
+      technology:
+        - python
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: HIGH
+    severity: WARNING
+    languages:
+      - python
+
+  - id: python-sql-injection-spark
+    patterns:
+      - pattern-either:
+          - pattern: spark.sql(f"...")
+          - pattern: spark.sql($X + ...)
+    message: |
+      Detected possible SQL injection in Spark SQL query using string formatting or concatenation.
+      Use parameterized queries or properly escape user input.
+    metadata:
+      category: security
+      technology:
+        - python
+        - spark
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+    severity: ERROR
+    languages:
+      - python
