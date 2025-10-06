@@ -11,7 +11,7 @@ Supports multiple LLM backends:
 import json
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import requests
 
@@ -107,65 +107,6 @@ class OllamaBackend(LLMBackend):
             return False
 
 
-def _normalize_workspace_url(url: Optional[str]) -> str:
-    """Ensure Databricks workspace URLs have https scheme and no trailing slash."""
-
-    if not url:
-        return ""
-    cleaned = url.strip()
-    if not cleaned:
-        return ""
-    if not cleaned.startswith("http"):
-        cleaned = f"https://{cleaned}"
-    return cleaned.rstrip("/")
-
-
-def _resolve_runtime_credentials() -> Tuple[Optional[str], Optional[str], str]:
-    """Attempt to fetch host/token from Databricks runtime helpers."""
-
-    # Try Databricks SDK config first (available in Apps and Workflows runtimes)
-    try:
-        from databricks.sdk import Config  # type: ignore
-
-        try:
-            cfg = Config()
-            if cfg.host or cfg.token:
-                return cfg.host, cfg.token, "databricks.sdk.Config"
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-    # Fallback: try dbutils context if exposed
-    for candidate in ("databricks.sdk.runtime", "dbutils"):
-        try:
-            runtime = __import__(candidate, fromlist=["dbutils"])  # type: ignore
-            dbutils = getattr(runtime, "dbutils", runtime)
-        except Exception:
-            continue
-        try:
-            entry = dbutils.notebook.entry_point.getDbutils()  # type: ignore[attr-defined]
-            ctx = entry.notebook().getContext()
-            host = None
-            token = None
-            try:
-                api_url = ctx.apiUrl()
-                host = api_url.get() if hasattr(api_url, "get") else api_url
-            except Exception:
-                pass
-            try:
-                api_token = ctx.apiToken()
-                token = api_token.get() if hasattr(api_token, "get") else api_token
-            except Exception:
-                pass
-            if host or token:
-                return host, token, f"{candidate}.dbutils"
-        except Exception:
-            continue
-
-    return None, None, ""
-
-
 class DatabricksBackend(LLMBackend):
     """
     Databricks Foundation Models backend.
@@ -192,47 +133,30 @@ class DatabricksBackend(LLMBackend):
         Environment variables (if args not provided):
             DATABRICKS_HOST: Workspace URL
             DATABRICKS_HOSTNAME: Workspace hostname (Databricks Apps)
-            DATABRICKS_TOKEN / DATABRICKS_APP_TOKEN / DATABRICKS_BEARER_TOKEN: Access token
+            DATABRICKS_TOKEN: Access token
             SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT: Endpoint name
-
-        Runtime fallback:
-            - Databricks SDK config (if available)
-            - Databricks dbutils context (Apps/Notebooks)
         """
-        runtime_host, runtime_token, runtime_source = _resolve_runtime_credentials()
-
         self.endpoint_name = (
             endpoint_name
             or os.getenv("SERVING_ENDPOINT")
             or os.getenv("DATABRICKS_LLM_ENDPOINT")
         )
-
-        resolved_workspace_url = _normalize_workspace_url(
-            workspace_url
-            or os.getenv("DATABRICKS_HOST")
-            or os.getenv("DATABRICKS_HOSTNAME")
-            or runtime_host
-        )
-
-        token_candidates = [
-            token,
-            os.getenv("DATABRICKS_TOKEN"),
-            os.getenv("DATABRICKS_APP_TOKEN"),
-            os.getenv("DATABRICKS_BEARER_TOKEN"),
-            runtime_token,
-        ]
-        resolved_token = next((t for t in token_candidates if t), None)
-
-        self.workspace_url = resolved_workspace_url
-        self.token = resolved_token
+        resolved_workspace_url = workspace_url or os.getenv("DATABRICKS_HOST", "")
+        if not resolved_workspace_url:
+            hostname = os.getenv("DATABRICKS_HOSTNAME", "")
+            if hostname:
+                resolved_workspace_url = (
+                    hostname if hostname.startswith("http") else f"https://{hostname}"
+                )
+        self.workspace_url = resolved_workspace_url.rstrip("/")
+        self.token = token or os.getenv("DATABRICKS_TOKEN")
         self.timeout = timeout
 
         if not all([self.endpoint_name, self.workspace_url, self.token]):
             # Debug: show what's actually set
             debug_info = (
                 f"endpoint_name={bool(self.endpoint_name)}, workspace_url={bool(self.workspace_url)}, "
-                f"token={bool(self.token)}, hostname_fallback={bool(os.getenv('DATABRICKS_HOSTNAME'))}, "
-                f"runtime_source={runtime_source or 'none'}"
+                f"token={bool(self.token)}, hostname_fallback={bool(os.getenv('DATABRICKS_HOSTNAME'))}"
             )
             raise ValueError(
                 f"Databricks backend requires endpoint_name, workspace_url, and token. "
