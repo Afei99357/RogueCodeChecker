@@ -181,21 +181,12 @@ def scan_with_llm_review(
 
     # Check if backend is available
     if not backend.is_available():
-        # Add more detailed diagnostic for Databricks
+        # Provide recommendation based on backend type
         recommendation = (
             "Start Ollama service or verify Databricks endpoint configuration."
         )
-        if hasattr(backend, "endpoint_name"):
-            # Databricks backend - check what's missing
-            missing = []
-            if not backend.endpoint_name:
-                missing.append("SERVING_ENDPOINT")
-            if not backend.workspace_url:
-                missing.append("DATABRICKS_HOST")
-            if not backend.token:
-                missing.append("DATABRICKS_TOKEN")
-            if missing:
-                recommendation = f"Missing environment variables: {', '.join(missing)}"
+        if hasattr(backend, "endpoint_name") and not backend.endpoint_name:
+            recommendation = "Missing SERVING_ENDPOINT environment variable."
 
         findings.append(
             Finding(
@@ -225,19 +216,29 @@ def scan_with_llm_review(
                     scan_files.append(os.path.join(dirpath, fn))
 
     # Scan each file
-    for file_path in scan_files:
+    print(f"\n🤖 LLM Review: Scanning {len(scan_files)} file(s)...")
+    for idx, file_path in enumerate(scan_files, 1):
         try:
             # Skip large files
             file_size = os.path.getsize(file_path)
             if file_size > max_file_size:
+                print(
+                    f"  [{idx}/{len(scan_files)}] ⏭️  Skipping {relpath(file_path, root)} (too large: {file_size} bytes)"
+                )
                 continue
 
             # Read file
             code = read_text(file_path)
             if not code.strip():
+                print(
+                    f"  [{idx}/{len(scan_files)}] ⏭️  Skipping {relpath(file_path, root)} (empty)"
+                )
                 continue
 
             # Generate review prompt
+            print(
+                f"  [{idx}/{len(scan_files)}] 🔍 Reviewing {relpath(file_path, root)}..."
+            )
             prompt = SECURITY_REVIEW_PROMPT.format(code=code)
 
             # Get LLM analysis
@@ -246,6 +247,11 @@ def scan_with_llm_review(
             # Parse findings
             file_findings = parse_llm_findings(response, relpath(file_path, root), code)
             findings.extend(file_findings)
+
+            if file_findings:
+                print(f"      ✓ Found {len(file_findings)} issue(s)")
+            else:
+                print(f"      ✓ No issues found")
 
         except Exception as e:
             # Add diagnostic for failed reviews

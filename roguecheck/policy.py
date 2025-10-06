@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Tuple
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 DEFAULT_POLICY = {
     "secrets": {

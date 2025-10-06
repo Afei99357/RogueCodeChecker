@@ -3,16 +3,18 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: $0 <path> [--format md|json|sarif] [--out <dir>] [--packs <packs>] [--no-sql-strict]
+Usage: $0 <path> [--format md|json|sarif] [--out <dir>] [--packs <packs>] [--no-sql-strict] [--llm]
 
 Examples:
   $0 test_samples                         # Quick scan, Markdown to stdout, per-file reports in ./out_cli
   $0 . --format json --out out_json       # JSON to combined stdout and per-file JSON in out_json/
   $0 . --packs auto                       # Use Semgrep auto rules if registry is blocked
+  $0 test_samples --llm                   # Include LLM review with Ollama/Qwen3
 
 Notes:
   - Requires Python deps installed (uv sync or pip install -r requirements.txt)
   - shellcheck is optional (install via brew/apt for Bash analysis)
+  - LLM review requires Ollama running with qwen3 model (ollama pull qwen3)
 EOF
 }
 
@@ -21,9 +23,10 @@ if [[ $# -lt 1 ]]; then usage; exit 1; fi
 TARGET="$1"; shift || true
 FORMAT="md"
 OUT_DIR="out_cli"
-PACKS="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript"
+PACKS="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript,roguecheck/rules/"
 EXTRA_TOOLS="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict"
 NO_SQL_STRICT="false"
+USE_LLM="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,10 +34,16 @@ while [[ $# -gt 0 ]]; do
     --out) OUT_DIR="$2"; shift 2;;
     --packs) PACKS="$2"; shift 2;;
     --no-sql-strict) NO_SQL_STRICT="true"; shift;;
+    --llm) USE_LLM="true"; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1"; usage; exit 1;;
   esac
 done
+
+# Add LLM review to tools if requested
+if [[ "$USE_LLM" == "true" ]]; then
+  EXTRA_TOOLS="${EXTRA_TOOLS},llm-review"
+fi
 
 mkdir -p "$OUT_DIR"
 
@@ -45,12 +54,18 @@ mkdir -p "$HOME"
 # Prefer uv if available
 run()
 {
+  local LLM_ARGS=""
+  if [[ "$USE_LLM" == "true" ]]; then
+    LLM_ARGS="--llm-backend ollama --llm-model qwen3"
+  fi
+
   if command -v uv >/dev/null 2>&1; then
     uv run python -m osscheck_cli scan --path "$TARGET" \
       --format "$FORMAT" \
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
       ${NO_SQL_STRICT:+--no-sql-strict} \
+      ${LLM_ARGS} \
       --per-file-out-dir "$OUT_DIR"
   else
     python -m osscheck_cli scan --path "$TARGET" \
@@ -58,6 +73,7 @@ run()
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
       ${NO_SQL_STRICT:+--no-sql-strict} \
+      ${LLM_ARGS} \
       --per-file-out-dir "$OUT_DIR"
   fi
 }

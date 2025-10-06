@@ -64,6 +64,9 @@ def scan_with_semgrep(
     configs = [c.strip() for c in str(semgrep_config).split(",") if c.strip()]
     if not configs:
         configs = ["auto"]
+
+    print(f"\n🔍 Semgrep: Scanning with configs: {', '.join(configs)}")
+
     for cfg in configs:
         # If cfg is a local path (dir or file), resolve to absolute from original CWD
         cfg_path = cfg
