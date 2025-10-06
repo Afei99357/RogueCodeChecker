@@ -50,11 +50,13 @@ def _summarize(findings: Iterable[Finding]) -> dict[str, int]:
 
 
 def to_json(findings: List[Finding]) -> str:
-    return json.dumps([f.__dict__ for f in findings], default=lambda o: o.__dict__, indent=2)
+    return json.dumps(
+        [f.__dict__ for f in findings], default=lambda o: o.__dict__, indent=2
+    )
 
 
 def to_sarif(findings: List[Finding]) -> str:
-    rules = {}
+    rules: dict = {}
     results = []
     for f in findings:
         rules.setdefault(
@@ -85,7 +87,12 @@ def to_sarif(findings: List[Finding]) -> str:
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
         "runs": [
-            {"tool": {"driver": {"name": "RogueCheck", "rules": list(rules.values())}}, "results": results}
+            {
+                "tool": {
+                    "driver": {"name": "RogueCheck", "rules": list(rules.values())}
+                },
+                "results": results,
+            }
         ],
     }
     return json.dumps(sarif, indent=2)

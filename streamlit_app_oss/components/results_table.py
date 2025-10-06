@@ -172,22 +172,16 @@ def render_findings_table(
                 )
                 st.dataframe(styled_df, width="stretch", hide_index=True)
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
-            st.download_button(
-                label="📦 Download per-file Markdown",
-                data=zip_bytes,
-                file_name="per_file_markdown_reports.zip",
-                mime="application/zip",
-            )
-        with col2:
-            if st.button("👁️ Show Details"):
-                st.session_state.show_details = not st.session_state.get(
-                    "show_details", False
-                )
-        if st.session_state.get("show_details", False):
-            st.subheader("📋 Detailed View")
+        zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
+        st.download_button(
+            label="📦 Download per-file Markdown",
+            data=zip_bytes,
+            file_name="per_file_markdown_reports.zip",
+            mime="application/zip",
+        )
+
+        # Always show detailed view in expander
+        with st.expander("📋 Detailed View", expanded=True):
             for idx, row in filtered_df.iterrows():
                 with st.expander(f"{row['Rule ID']} - {row['File']}:{row['Line']}"):
                     c1, c2 = st.columns(2)
@@ -258,8 +252,12 @@ def _build_markdown_zip(
             findings = findings_by_file.get(file_name, [])
             content = to_markdown(findings)
             safe_name = file_name.replace("/", "_").replace("\\", "_")
-            if not safe_name.lower().endswith("_report.md"):
-                safe_name = f"{safe_name}_report.md"
+
+            # Remove original extension and add _report.md
+            if "." in safe_name:
+                safe_name = safe_name.rsplit(".", 1)[0]
+            safe_name = f"{safe_name}_report.md"
+
             counts[safe_name] = counts.get(safe_name, 0) + 1
             final_name = safe_name
             if counts[safe_name] > 1:
