@@ -83,7 +83,11 @@ class ScannerService:
                     try:
                         backend_type = self.config.get("llm_backend", "databricks")
                         if backend_type == "databricks":
-                            llm_backend = create_backend("databricks")
+                            # Use user-selected endpoint if provided
+                            endpoint_name = self.config.get("serving_endpoint")
+                            llm_backend = create_backend(
+                                "databricks", endpoint_name=endpoint_name
+                            )
                         elif backend_type == "ollama":
                             llm_backend = create_backend("ollama")
                     except Exception as e:

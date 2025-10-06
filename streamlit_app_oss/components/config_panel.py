@@ -103,9 +103,46 @@ def render_config_panel() -> Dict:
         )
 
         if config["llm_backend"] == "databricks":
-            st.caption(
-                "Configure via environment variables: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_LLM_ENDPOINT"
+            import os
+
+            # Get default from environment (set via Databricks Apps resource)
+            default_endpoint = os.getenv("SERVING_ENDPOINT", "")
+            endpoint_choices = [
+                "databricks-meta-llama-3-3-70b-instruct",
+                "databricks-claude-sonnet-4",
+                "Custom…",
+            ]
+
+            # Set default selection
+            if default_endpoint and default_endpoint in endpoint_choices[:-1]:
+                default_index = endpoint_choices.index(default_endpoint)
+                preset_value = ""
+            elif default_endpoint:
+                # Custom endpoint from env
+                default_index = len(endpoint_choices) - 1
+                preset_value = default_endpoint
+            else:
+                # No env var, default to Claude Sonnet 4
+                default_index = 1  # databricks-claude-sonnet-4
+                preset_value = ""
+
+            chosen_option = st.selectbox(
+                "Serving Endpoint",
+                endpoint_choices,
+                index=default_index,
+                help="Choose LLM model endpoint (from Databricks Apps resource or override)",
             )
+
+            if chosen_option == "Custom…":
+                config["serving_endpoint"] = st.text_input(
+                    "Custom Endpoint Name",
+                    value=preset_value,
+                    placeholder="your-custom-endpoint-name",
+                )
+            else:
+                config["serving_endpoint"] = chosen_option
+
+            st.caption(f"Using endpoint: {config.get('serving_endpoint', 'Not set')}")
         else:
             st.caption(
                 "Configure via environment variables: OLLAMA_MODEL, OLLAMA_ENDPOINT"
