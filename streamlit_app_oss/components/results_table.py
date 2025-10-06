@@ -61,7 +61,7 @@ def _render_diagnostics(diags: List, scanner_service) -> None:
             st.write("No diagnostics.")
             return
         display_columns = ["Rule ID", "Severity", "Message", "Recommendation"]
-        st.dataframe(df[display_columns], use_container_width=True, hide_index=True)
+        st.dataframe(df[display_columns], use_container_width=True, hide_index=False)
 
 
 def render_summary_metrics(summary: Dict[str, Any]) -> None:
@@ -161,7 +161,7 @@ def render_findings_table(
             styled_df = filtered_df[display_columns].style.map(
                 style_severity, subset=["Severity"]
             )
-            st.dataframe(styled_df, width="stretch", hide_index=True)
+            st.dataframe(styled_df, width="stretch", hide_index=False)
         else:
             # Per-file tables
             for file_name in sorted(filtered_df["File"].unique()):
@@ -170,7 +170,7 @@ def render_findings_table(
                 styled_df = sub[display_columns].style.map(
                     style_severity, subset=["Severity"]
                 )
-                st.dataframe(styled_df, width="stretch", hide_index=True)
+                st.dataframe(styled_df, width="stretch", hide_index=False)
 
         zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
         st.download_button(
