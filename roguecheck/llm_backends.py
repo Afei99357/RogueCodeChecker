@@ -147,8 +147,11 @@ class DatabricksBackend(LLMBackend):
         self.timeout = timeout
 
         if not all([self.endpoint_name, self.workspace_url, self.token]):
+            # Debug: show what's actually set
+            debug_info = f"endpoint_name={bool(self.endpoint_name)}, workspace_url={bool(self.workspace_url)}, token={bool(self.token)}"
             raise ValueError(
-                "Databricks backend requires endpoint_name, workspace_url, and token. "
+                f"Databricks backend requires endpoint_name, workspace_url, and token. "
+                f"Current state: {debug_info}. "
                 "Provide via constructor or environment variables: "
                 "DATABRICKS_HOST, DATABRICKS_TOKEN, SERVING_ENDPOINT"
             )
