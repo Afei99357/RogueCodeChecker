@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from roguecheck.models import Finding
-from roguecheck.policy import Policy
 from roguecheck.oss_runner import run_oss_tools
+from roguecheck.policy import Policy
 
 
 class ScannerService:
@@ -24,7 +24,7 @@ class ScannerService:
         results = {
             "findings_by_file": {},
             "all_findings": [],  # code issues only
-            "diagnostics": [],   # engine advisories (OSS_ENGINE_*)
+            "diagnostics": [],  # engine advisories (OSS_ENGINE_*)
             "summary": {},
             "files_scanned": [],
         }
@@ -39,17 +39,16 @@ class ScannerService:
                 # Base packs from UI (or defaults)
                 semgrep_packs = str(
                     self.config.get(
-                        "semgrep_packs", "p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql"
+                        "semgrep_packs",
+                        "p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript",
                     )
                 )
                 # Auto-augment packs to match uploaded file types
+                # Note: p/bash and p/sql don't exist in Semgrep registry - use ShellCheck and sql-strict instead
                 ext_to_pack = {
                     ".py": "p/python",
-                    ".sh": "p/bash",
-                    ".bash": "p/bash",
                     ".js": "p/javascript",
                     ".ts": "p/typescript",
-                    ".sql": "p/sql",
                     ".java": "p/java",
                     ".go": "p/go",
                     ".rb": "p/ruby",
@@ -112,7 +111,8 @@ class ScannerService:
                     "Message": finding.message,
                     "Line": finding.position.line,
                     "Column": finding.position.column,
-                    "Recommendation": finding.recommendation or "No recommendation available",
+                    "Recommendation": finding.recommendation
+                    or "No recommendation available",
                     "Snippet": finding.snippet or "No code snippet available",
                 }
             )
@@ -152,7 +152,9 @@ class ScannerService:
         unique_files = set()
         unique_rules = set()
         for finding in findings:
-            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            severity_counts[finding.severity] = (
+                severity_counts.get(finding.severity, 0) + 1
+            )
             unique_files.add(finding.path)
             unique_rules.add(finding.rule_id)
         return {

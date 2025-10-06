@@ -11,7 +11,7 @@ uv run python -m osscheck_cli scan \
   --path "$ROOT_DIR/test_samples" \
   --format md \
   --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
-  --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql \
+  --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript \
   --per-file-out-dir "$ROOT_DIR/out_cli"
 
 echo

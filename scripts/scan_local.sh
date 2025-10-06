@@ -21,7 +21,7 @@ if [[ $# -lt 1 ]]; then usage; exit 1; fi
 TARGET="$1"; shift || true
 FORMAT="md"
 OUT_DIR="out_cli"
-PACKS="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql"
+PACKS="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript"
 EXTRA_TOOLS="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict"
 NO_SQL_STRICT="false"
 

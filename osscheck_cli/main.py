@@ -4,7 +4,7 @@ import sys
 
 from roguecheck.models import Finding
 from roguecheck.policy import Policy
-from roguecheck.report import SEV_ORDER, to_markdown, to_json, to_sarif
+from roguecheck.report import SEV_ORDER, to_json, to_markdown, to_sarif
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
 
@@ -28,7 +28,7 @@ def main(argv=None):
     sp.add_argument("--format", choices=list(FORMATS.keys()), default="md")
     sp.add_argument(
         "--semgrep-config",
-        default="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql",
+        default="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript",
         help="Semgrep config (comma-separated packs or 'auto')",
     )
     sp.add_argument(
@@ -105,17 +105,25 @@ def main(argv=None):
                 tmp: list[str] = []
                 try:
                     with open(args.paths_from, "r", encoding="utf-8") as fl:
-                        tmp = [ln.strip() for ln in fl.read().splitlines() if ln.strip()]
+                        tmp = [
+                            ln.strip() for ln in fl.read().splitlines() if ln.strip()
+                        ]
                 except Exception:
                     tmp = []
                 for pth in tmp:
-                    ap = pth if os.path.isabs(pth) else os.path.abspath(os.path.join(args.path, pth))
+                    ap = (
+                        pth
+                        if os.path.isabs(pth)
+                        else os.path.abspath(os.path.join(args.path, pth))
+                    )
                     try:
                         rp = os.path.relpath(
                             ap,
-                            args.path
-                            if os.path.isdir(args.path)
-                            else os.path.dirname(os.path.abspath(args.path)),
+                            (
+                                args.path
+                                if os.path.isdir(args.path)
+                                else os.path.dirname(os.path.abspath(args.path))
+                            ),
                         )
                     except Exception:
                         rp = os.path.basename(ap)

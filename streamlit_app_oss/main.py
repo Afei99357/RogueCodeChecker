@@ -1,6 +1,7 @@
 """
 OSS-Only Streamlit Web Application (Semgrep)
 """
+
 import os
 import sys
 
@@ -10,9 +11,9 @@ import streamlit as st
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from streamlit_app_oss.components.config_panel import render_config_panel
+from streamlit_app_oss.components.diagnostics import render_diagnostics
 from streamlit_app_oss.components.file_upload import render_file_upload
 from streamlit_app_oss.components.results_table import render_results
-from streamlit_app_oss.components.diagnostics import render_diagnostics
 from streamlit_app_oss.services.scanner_service import ScannerService
 
 
@@ -28,7 +29,9 @@ def main():
         '<h1 class="main-header">🧩 OSS Security Scanner (Semgrep)</h1>',
         unsafe_allow_html=True,
     )
-    st.caption("This app uses open-source scanners only (Semgrep). Built-in rules are disabled.")
+    st.caption(
+        "This app uses open-source scanners only (Semgrep). Built-in rules are disabled."
+    )
 
     # Sidebar config (force engine=oss)
     with st.sidebar:
@@ -57,8 +60,12 @@ def main():
             st.info("👆 Upload files to start scanning with Semgrep")
 
     st.markdown("---")
-    render_diagnostics(config.get("semgrep_packs", "p/security-audit,p/python,p/bash,p/javascript"))
-    st.caption("Powered by open-source tools: Semgrep, detect-secrets, sqlfluff, shellcheck.")
+    render_diagnostics(
+        config.get("semgrep_packs", "p/security-audit,p/python,p/javascript")
+    )
+    st.caption(
+        "Powered by open-source tools: Semgrep, detect-secrets, sqlfluff, shellcheck."
+    )
 
 
 if __name__ == "__main__":

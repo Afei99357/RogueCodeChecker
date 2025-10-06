@@ -77,6 +77,7 @@ def scan_with_semgrep(
         cmd.append(f"--config={cfg_path}")
     if files:
         # Normalize to absolute paths to avoid cwd issues
+        # Files may already be absolute (from oss_runner.py), so don't double-join
         abs_files = [
             f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f))
             for f in files
@@ -146,7 +147,8 @@ def scan_with_semgrep(
         fallback_cmd = [semgrep_bin, "--json", "--quiet", "--config=auto"]
         if files:
             abs_files = [
-                f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files
+                f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f))
+                for f in files
             ]
             fallback_cmd.extend(abs_files)
         else:

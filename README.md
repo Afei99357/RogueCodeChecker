@@ -36,7 +36,7 @@ Quick use (defaults)
 
 These use the built‑in defaults:
 - Tools: `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict`
-- Packs: `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql`
+- Packs: `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript`
 - Strict SQL: enabled
 
 - Using uv (recommended)
@@ -47,13 +47,13 @@ These use the built‑in defaults:
       --path . \
       --format md \
       --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
-      --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql \
+      --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript \
       --per-file-out-dir out_cli
     ```
 - Using venv + pip
   - `python -m venv .venv && source .venv/bin/activate`
   - `pip install -r requirements.txt`
-  - `python -m osscheck_cli scan --path . --format md --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql --per-file-out-dir out_cli`
+  - `python -m osscheck_cli scan --path . --format md --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript --per-file-out-dir out_cli`
 
 - One‑command helper script
   - `bash scripts/scan_local.sh test_samples` (adds per‑file reports to `out_cli/`)
@@ -67,7 +67,7 @@ These use the built‑in defaults:
 - `--semgrep-config` — comma-separated packs or `auto` (default includes security-audit, OWASP Top 10, secrets, Python/Bash/JS/TS/SQL packs)
 - `--per-file-out-dir <dir>` — additionally write one report per file into this directory
 - `--fail-on low|medium|high|critical` — exit non-zero if any finding at/above threshold
-  
+
 Notes:
 - Passing a single file in `--path` runs all selected tools against that file (including strict SQL and snippet extraction).
 - You can also pass `--paths-from <filelist>` to scan an explicit list.
@@ -99,7 +99,7 @@ Notes:
     --path test_samples \
     --format md \
     --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict \
-    --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql \
+    --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript \
     --per-file-out-dir out_cli
   ```
   This includes `.txt`/`.md` capture and notebook extraction; findings from embedded snippets are mapped back to the source files.
@@ -110,7 +110,7 @@ Notes:
 - Batch via list and SARIF output:
   ```bash
   git ls-files 'test_samples/*' > files.txt
-  uv run python -m osscheck_cli scan --path . --paths-from files.txt --format sarif --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/bash,p/javascript,p/typescript,p/sql
+  uv run python -m osscheck_cli scan --path . --paths-from files.txt --format sarif --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict --semgrep-config p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript
   ```
 
 ## Troubleshooting
