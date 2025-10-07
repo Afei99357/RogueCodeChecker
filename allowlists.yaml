@@ -1,5 +1,0 @@
-domains:
-  - "*.corp.example.com"
-  - "login.microsoftonline.com"
-paths:
-  - "/Volumes/proj/"
