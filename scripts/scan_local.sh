@@ -63,12 +63,18 @@ run()
     LLM_ARGS="--llm-backend ollama --llm-model qwen3"
   fi
 
+  # Build sql-strict flag conditionally
+  local SQL_STRICT_FLAG=""
+  if [[ "$NO_SQL_STRICT" == "true" ]]; then
+    SQL_STRICT_FLAG="--no-sql-strict"
+  fi
+
   if command -v uv >/dev/null 2>&1; then
     uv run python -m osscheck_cli scan --path "$TARGET" \
       --format "$FORMAT" \
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
-      ${NO_SQL_STRICT:+--no-sql-strict} \
+      $SQL_STRICT_FLAG \
       ${LLM_ARGS} \
       --per-file-out-dir "$OUT_DIR"
   else
@@ -76,7 +82,7 @@ run()
       --format "$FORMAT" \
       --tools "$EXTRA_TOOLS" \
       --semgrep-config "$PACKS" \
-      ${NO_SQL_STRICT:+--no-sql-strict} \
+      $SQL_STRICT_FLAG \
       ${LLM_ARGS} \
       --per-file-out-dir "$OUT_DIR"
   fi
