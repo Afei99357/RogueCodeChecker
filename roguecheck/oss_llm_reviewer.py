@@ -12,7 +12,10 @@ from .llm_backends import LLMBackend, get_default_backend
 from .models import Finding, Position
 from .utils import read_text, relpath, safe_snippet
 
-SECURITY_REVIEW_PROMPT = """You are a security expert reviewing code for vulnerabilities. Analyze the code below and identify ALL security issues, even if they appear to be in test files or have explanatory comments.
+# Prompt for files with NO findings from OSS tools - do full review
+GAP_FILLING_PROMPT = """You are a security expert reviewing code for vulnerabilities. Static analysis tools found NO issues in this file, but they may have missed something.
+
+**YOUR MISSION:** Find security issues that pattern-based tools missed.
 
 **CRITICAL VULNERABILITIES TO DETECT:**
 1. **eval() or exec()**: Arbitrary code execution
@@ -26,13 +29,13 @@ SECURITY_REVIEW_PROMPT = """You are a security expert reviewing code for vulnera
 9. **Prompt Injection**: Unsanitized user input in LLM prompts
 10. **Authentication Issues**: Missing or weak authentication
 11. **Input Validation**: Missing validation on user inputs
+12. **Logic flaws**: Race conditions, business logic bypasses
 
 **INSTRUCTIONS:**
-- Report EVERY dangerous function call (eval, exec, pickle.load, os.system, subprocess with shell=True)
-- Report SQL queries using f-strings or string concatenation
-- Report hardcoded credentials and API keys
-- Report requests with verify=False
-- Ignore comments - analyze the actual code
+- Focus on semantic issues that regex/patterns can't catch
+- Look for context-dependent vulnerabilities
+- Analyze data flow and control flow
+- Ignore comments - analyze actual code behavior
 - Even if it's a test file, report all vulnerabilities
 
 For each vulnerability found, respond in this EXACT format:
@@ -44,7 +47,59 @@ DESCRIPTION: <detailed explanation>
 RECOMMENDATION: <how to fix>
 ---
 
-If NO vulnerabilities found, respond with exactly: "NO_SECURITY_ISSUES_FOUND"
+If NO additional vulnerabilities found, respond with exactly: "NO_SECURITY_ISSUES_FOUND"
+
+Code to review:
+```
+{code}
+```
+
+Your security analysis:"""
+
+# Prompt for files WITH findings - look for ADDITIONAL issues only
+ENRICHMENT_PROMPT = """You are a security expert reviewing code. Static analysis tools already found these issues:
+
+{existing_findings}
+
+**YOUR MISSION:** Find ADDITIONAL security issues that the tools missed. DO NOT repeat the issues above.
+
+**CRITICAL VULNERABILITIES TO CHECK (that tools may have missed):**
+1. **eval() or exec()**: Arbitrary code execution (indirect patterns)
+2. **pickle.load()**: Unsafe deserialization (dynamic module loading)
+3. **os.system()**: Shell command injection (via variables)
+4. **subprocess with shell=True**: Command injection (partial user input)
+5. **SQL string concatenation/f-strings**: SQL injection (complex patterns)
+6. **requests with verify=False**: Disabled SSL verification (conditionally set)
+7. **yaml.load() without SafeLoader**: Code execution via YAML (custom loaders)
+8. **Hardcoded secrets**: API keys, passwords, tokens (obfuscated or encoded)
+9. **Prompt Injection**: Unsanitized user input in LLM prompts (indirect flow)
+10. **Authentication Issues**: Missing or weak authentication (logic-level)
+11. **Input Validation**: Missing validation on user inputs (complex inputs)
+12. **Logic flaws**: Race conditions, business logic bypasses, TOCTOU
+
+**FOCUS AREAS:**
+- Context-dependent vulnerabilities the tools can't understand
+- Complex data flow issues (multi-step injection paths)
+- Indirect code injection paths (via config, templates, imports)
+- Authentication/authorization flaws in business logic
+- Configuration issues that depend on usage context
+
+**INSTRUCTIONS:**
+- Only report NEW issues not already listed above in the findings
+- Focus on semantic/contextual security problems
+- Analyze how the code is used in context
+- Look for indirect/complex patterns of the critical vulnerabilities
+
+For each NEW vulnerability found, respond in this EXACT format:
+
+VULNERABILITY: <brief title>
+SEVERITY: <CRITICAL|HIGH|MEDIUM|LOW>
+LINE: <line number>
+DESCRIPTION: <detailed explanation>
+RECOMMENDATION: <how to fix>
+---
+
+If NO additional vulnerabilities found beyond what tools detected, respond: "NO_ADDITIONAL_ISSUES_FOUND"
 
 Code to review:
 ```
@@ -68,7 +123,11 @@ def parse_llm_findings(response: str, file_path: str, code: str) -> List[Finding
     """
     findings: List[Finding] = []
 
-    if "NO_SECURITY_ISSUES_FOUND" in response:
+    # Check for "no issues" responses from both modes
+    if (
+        "NO_SECURITY_ISSUES_FOUND" in response
+        or "NO_ADDITIONAL_ISSUES_FOUND" in response
+    ):
         return findings
 
     # Split response into vulnerability blocks
@@ -146,18 +205,24 @@ def scan_with_llm_review(
     files: Optional[List[str]] = None,
     backend: Optional[LLMBackend] = None,
     max_file_size: int = 10000,
+    existing_findings: Optional[List[Finding]] = None,
 ) -> List[Finding]:
     """
     Scan code files using LLM-based security review.
+
+    Two-stage approach:
+    - For files WITH findings: LLM looks for ADDITIONAL issues only (enrichment)
+    - For files WITHOUT findings: LLM does full security review (gap-filling)
 
     Args:
         root: Root directory being scanned
         files: Optional list of specific files to scan
         backend: LLM backend to use (defaults to auto-detected)
         max_file_size: Max file size in bytes to review (default 10KB)
+        existing_findings: Findings from OSS/rule-based tools (for enrichment mode)
 
     Returns:
-        List of findings from LLM review
+        List of NEW findings from LLM review (non-overlapping with existing)
     """
     findings: List[Finding] = []
 
@@ -237,6 +302,15 @@ def scan_with_llm_review(
                 if fn.endswith(code_extensions) or fn == "Dockerfile":
                     scan_files.append(os.path.join(dirpath, fn))
 
+    # Group existing findings by file path for enrichment mode
+    findings_by_file: dict[str, List[Finding]] = {}
+    if existing_findings:
+        for finding in existing_findings:
+            path = finding.path
+            if path not in findings_by_file:
+                findings_by_file[path] = []
+            findings_by_file[path].append(finding)
+
     # Scan each file
     print(f"\n🤖 LLM Review: Scanning {len(scan_files)} file(s)...")
     for idx, file_path in enumerate(scan_files, 1):
@@ -257,23 +331,41 @@ def scan_with_llm_review(
                 )
                 continue
 
-            # Generate review prompt
-            print(
-                f"  [{idx}/{len(scan_files)}] 🔍 Reviewing {relpath(file_path, root)}..."
-            )
-            prompt = SECURITY_REVIEW_PROMPT.format(code=code)
+            # Determine which prompt to use
+            rel_path = relpath(file_path, root)
+            file_existing_findings = findings_by_file.get(rel_path, [])
+
+            if file_existing_findings:
+                # ENRICHMENT MODE: File has findings - look for additional issues
+                print(
+                    f"  [{idx}/{len(scan_files)}] 🔍 Enriching {rel_path} ({len(file_existing_findings)} existing findings)..."
+                )
+                # Format existing findings for prompt
+                findings_text = "\n".join(
+                    f"- {f.rule_id}: {f.message} (line {f.position.line})"
+                    for f in file_existing_findings
+                )
+                prompt = ENRICHMENT_PROMPT.format(
+                    existing_findings=findings_text, code=code
+                )
+            else:
+                # GAP-FILLING MODE: File has no findings - do full review
+                print(
+                    f"  [{idx}/{len(scan_files)}] 🔍 Reviewing {rel_path} (gap-filling)..."
+                )
+                prompt = GAP_FILLING_PROMPT.format(code=code)
 
             # Get LLM analysis
             response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
 
             # Parse findings
-            file_findings = parse_llm_findings(response, relpath(file_path, root), code)
+            file_findings = parse_llm_findings(response, rel_path, code)
             findings.extend(file_findings)
 
             if file_findings:
-                print(f"      ✓ Found {len(file_findings)} issue(s)")
+                print(f"      ✓ Found {len(file_findings)} additional issue(s)")
             else:
-                print(f"      ✓ No issues found")
+                print(f"      ✓ No additional issues found")
 
         except Exception as e:
             # Add diagnostic for failed reviews

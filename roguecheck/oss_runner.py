@@ -115,11 +115,12 @@ def run_oss_tools(
             combined_files.extend(generated)
             combined_files.extend(typed_copies)
 
-        # Run selected tools
+        # STAGE 1: Run OSS/rule-based tools first
+        oss_findings: List[Finding] = []
         if "semgrep" in tools:
             from .oss_semgrep import scan_with_semgrep
 
-            all_findings.extend(
+            oss_findings.extend(
                 scan_with_semgrep(
                     root=root,
                     semgrep_config=semgrep_config,
@@ -129,38 +130,46 @@ def run_oss_tools(
         if "detect-secrets" in tools:
             from .oss_detect_secrets import scan_with_detect_secrets
 
-            all_findings.extend(
+            oss_findings.extend(
                 scan_with_detect_secrets(root=root, files=combined_files)
             )
         if "sqlfluff" in tools:
             from .oss_sqlfluff import scan_with_sqlfluff
 
-            all_findings.extend(scan_with_sqlfluff(root=root, files=combined_files))
+            oss_findings.extend(scan_with_sqlfluff(root=root, files=combined_files))
         if "shellcheck" in tools:
             from .oss_shellcheck import scan_with_shellcheck
 
-            all_findings.extend(scan_with_shellcheck(root=root, files=combined_files))
+            oss_findings.extend(scan_with_shellcheck(root=root, files=combined_files))
         if "sql-strict" in tools:
             from .oss_sql_strict import scan_strict_sql
 
             # Run on root to catch all real .sql files
-            all_findings.extend(scan_strict_sql(root=root, files=None))
+            oss_findings.extend(scan_strict_sql(root=root, files=None))
             # Additionally run on generated snippet files that are .sql and live outside root
             gen_sql = [p for p in (generated or []) if p.lower().endswith(".sql")]
             if gen_sql:
-                all_findings.extend(scan_strict_sql(root=root, files=gen_sql))
+                oss_findings.extend(scan_strict_sql(root=root, files=gen_sql))
         if "sqlcheck" in tools:
             from .oss_sqlcheck import scan_with_sqlcheck
 
-            all_findings.extend(scan_with_sqlcheck(root=root, files=combined_files))
+            oss_findings.extend(scan_with_sqlcheck(root=root, files=combined_files))
+
+        # Add OSS findings to results
+        all_findings.extend(oss_findings)
+
+        # STAGE 2: Run LLM review with awareness of OSS findings
         if "llm-review" in tools:
             from .oss_llm_reviewer import scan_with_llm_review
 
-            all_findings.extend(
-                scan_with_llm_review(
-                    root=root, files=combined_files, backend=llm_backend
-                )
+            # Pass OSS findings to LLM for enrichment/gap-filling
+            llm_findings = scan_with_llm_review(
+                root=root,
+                files=combined_files,
+                backend=llm_backend,
+                existing_findings=oss_findings,
             )
+            all_findings.extend(llm_findings)
         # Map findings produced on generated temp files back to their origin file and line
         if origin_map:
             for f in all_findings:
