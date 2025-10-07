@@ -202,4 +202,11 @@ def run_oss_tools(
                     except Exception:
                         pass
 
+        # Fix path for single file scans where Semgrep returns "."
+        if os.path.isfile(root):
+            root_basename = os.path.basename(root)
+            for f in all_findings:
+                if f.path == ".":
+                    f.path = root_basename
+
     return all_findings

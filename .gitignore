@@ -60,3 +60,4 @@ Thumbs.db
 .home_tmp/
 out_cli/
 test_output/
+test_output_*/

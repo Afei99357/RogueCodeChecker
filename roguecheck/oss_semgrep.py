@@ -291,6 +291,9 @@ def scan_with_semgrep(
 
     for r in data.get("results", []) or []:
         path = r.get("path") or root
+        # If path is "." and root is a file, use the basename of the file
+        if path == "." and os.path.isfile(root):
+            path = os.path.basename(root)
         check_id = r.get("check_id") or r.get("rule_id") or "SEMGREP_RULE"
         extra = r.get("extra", {}) or {}
         sev = _map_severity(extra.get("severity", ""))

@@ -2,9 +2,14 @@ import os
 import re
 from typing import Iterable, List, Tuple
 
-
-SQL_HINT = re.compile(r"\b(SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|GRANT\s+ALL|DROP\s+TABLE|TRUNCATE\s+TABLE)\b", re.IGNORECASE)
-SHELL_HINT = re.compile(r"(^#!.*\b(bash|sh)\b)|\b(curl\s+|wget\s+|rm\s+-rf\s+|chmod\s+\d{3}|sudo\s+)\b", re.IGNORECASE | re.MULTILINE)
+SQL_HINT = re.compile(
+    r"\b(SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|GRANT\s+ALL|DROP\s+TABLE|TRUNCATE\s+TABLE)\b",
+    re.IGNORECASE,
+)
+SHELL_HINT = re.compile(
+    r"(^#!.*\b(bash|sh)\b)|\b(curl\s+|wget\s+|rm\s+-rf\s+|chmod\s+\d{3}|sudo\s+)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 def guess_extensions(text: str, filename: str) -> List[str]:
@@ -14,7 +19,19 @@ def guess_extensions(text: str, filename: str) -> List[str]:
     name = filename.lower()
     # Extension-based quick guess
     _, ext = os.path.splitext(name)
-    if ext in {".py", ".sh", ".bash", ".sql", ".js", ".ts", ".java", ".go", ".rb", ".php", ".cs"}:
+    if ext in {
+        ".py",
+        ".sh",
+        ".bash",
+        ".sql",
+        ".js",
+        ".ts",
+        ".java",
+        ".go",
+        ".rb",
+        ".php",
+        ".cs",
+    }:
         return [ext]
     # Shebangs
     if text.startswith("#!/"):
@@ -23,7 +40,7 @@ def guess_extensions(text: str, filename: str) -> List[str]:
     # Language keywords
     if re.search(r"\b(def|import|from\s+\w+\s+import)\b", text):
         return [".py"]
-    if re.search(r"\b(function\s+\w+|import\s+.*from\s+['\"])\b", text):
+    if re.search(r"\b(function\s+\w+|import\s+.*from\s+['\"])\b", text):  # type: ignore[unreachable]
         return [".js"]
     if re.search(r"\bpackage\s+\w+;|public\s+class\b", text):
         return [".java"]
@@ -47,15 +64,19 @@ def extract_embedded_snippets(text: str) -> List[Tuple[str, str, int]]:
     """
     out: List[Tuple[str, str, int]] = []
     # Fenced code blocks ```sql ... ``` or ```bash ... ```
-    for m in re.finditer(r"```(sql|postgres|tsql|bigquery)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL):
+    for m in re.finditer(
+        r"```(sql|postgres|tsql|bigquery)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL
+    ):
         out.append((".sql", m.group(2).strip(), _line_from_index(text, m.start(2))))
-    for m in re.finditer(r"```(bash|sh|shell)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL):
+    for m in re.finditer(
+        r"```(bash|sh|shell)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL
+    ):
         out.append((".sh", m.group(2).strip(), _line_from_index(text, m.start(2))))
     # Inline SQL hints: capture lines around statements
     for m in SQL_HINT.finditer(text):
         # Grab up to next semicolon or 5 lines
         start = m.start()
-        segment = text[start: start + 1000]
+        segment = text[start : start + 1000]
         semi = segment.find(";")
         snippet = segment[: semi + 1] if semi != -1 else segment.splitlines()[0]
         out.append((".sql", snippet.strip(), _line_from_index(text, start)))
@@ -72,18 +93,27 @@ def extract_embedded_snippets(text: str) -> List[Tuple[str, str, int]]:
     for m in re.finditer(r"Runtime\.getRuntime\(\)\.exec\(\s*\"([^\"]+)\"\s*\)", text):
         out.append((".sh", m.group(1), _line_from_index(text, m.start(1))))
     # ProcessBuilder("bash","-c","<cmd>")
-    for m in re.finditer(r"ProcessBuilder\(\s*\"bash\"\s*,\s*\"-c\"\s*,\s*\"([^\"]+)\"\s*\)", text):
+    for m in re.finditer(
+        r"ProcessBuilder\(\s*\"bash\"\s*,\s*\"-c\"\s*,\s*\"([^\"]+)\"\s*\)", text
+    ):
         out.append((".sh", m.group(1), _line_from_index(text, m.start(1))))
     # JDBC Statement.execute("SQL...") / executeQuery / prepareStatement
-    for m in re.finditer(r"\.(execute|executeQuery|prepareStatement)\(\s*\"([^\"]+)\"\s*\)", text):
+    for m in re.finditer(
+        r"\.(execute|executeQuery|prepareStatement)\(\s*\"([^\"]+)\"\s*\)", text
+    ):
         sql = m.group(2)
         if SQL_HINT.search(sql):
             out.append((".sql", sql, _line_from_index(text, m.start(2))))
 
     # JavaScript/TypeScript: child_process.exec/execSync and spawn('sh','-c',...)
-    for m in re.finditer(r"child_process\.(exec|execSync)\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
+    for m in re.finditer(
+        r"child_process\.(exec|execSync)\(\s*['\"]([^'\"]+)['\"]\s*\)", text
+    ):
         out.append((".sh", m.group(2), _line_from_index(text, m.start(2))))
-    for m in re.finditer(r"spawn\(\s*['\"](bash|sh)['\"]\s*,\s*\[\s*['\"]-c['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\]", text):
+    for m in re.finditer(
+        r"spawn\(\s*['\"](bash|sh)['\"]\s*,\s*\[\s*['\"]-c['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\]",
+        text,
+    ):
         out.append((".sh", m.group(2), _line_from_index(text, m.start(2))))
     # Common SQL query usage in JS: db.query("SQL ...")
     for m in re.finditer(r"\.(query|execute)\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
