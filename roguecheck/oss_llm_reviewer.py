@@ -13,23 +13,28 @@ from .models import Finding, Position
 from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
-SECURITY_REVIEW_PROMPT = """You are a security expert reviewing code for vulnerabilities. Analyze the following code and identify security issues.
+SECURITY_REVIEW_PROMPT = """You are a security expert reviewing code for vulnerabilities. Analyze the code below and identify ALL security issues, even if they appear to be in test files or have explanatory comments.
 
-Focus on:
-1. **Prompt Injection**: Unsanitized user input in LLM prompts
-2. **SQL Injection**: Unsafe SQL query construction
-3. **Command Injection**: Unsafe shell command execution
-4. **Authentication Issues**: Missing or weak authentication
-5. **Input Validation**: Missing validation on user inputs
-6. **Hardcoded Secrets**: API keys, passwords, tokens in code
-7. **Business Logic Flaws**: Authorization bypasses, race conditions
-8. **Insecure Defaults**: Debug mode, permissive settings
+**CRITICAL VULNERABILITIES TO DETECT:**
+1. **eval() or exec()**: Arbitrary code execution
+2. **pickle.load()**: Unsafe deserialization
+3. **os.system()**: Shell command injection
+4. **subprocess with shell=True**: Command injection
+5. **SQL string concatenation/f-strings**: SQL injection
+6. **requests with verify=False**: Disabled SSL verification
+7. **yaml.load() without SafeLoader**: Code execution via YAML
+8. **Hardcoded secrets**: API keys, passwords, tokens in code
+9. **Prompt Injection**: Unsanitized user input in LLM prompts
+10. **Authentication Issues**: Missing or weak authentication
+11. **Input Validation**: Missing validation on user inputs
 
-**CRITICAL**: Only report ACTUAL security vulnerabilities. Do not report:
-- Code style issues
-- Performance optimizations
-- Missing docstrings
-- General best practices (unless security-related)
+**INSTRUCTIONS:**
+- Report EVERY dangerous function call (eval, exec, pickle.load, os.system, subprocess with shell=True)
+- Report SQL queries using f-strings or string concatenation
+- Report hardcoded credentials and API keys
+- Report requests with verify=False
+- Ignore comments - analyze the actual code
+- Even if it's a test file, report all vulnerabilities
 
 For each vulnerability found, respond in this EXACT format:
 
@@ -209,10 +214,11 @@ def scan_with_llm_review(
     elif os.path.isfile(root):
         scan_files = [root]
     elif os.path.isdir(root):
-        # Scan Python files by default
+        # Scan code files (Python, JavaScript, Java, etc.)
+        code_extensions = (".py", ".js", ".ts", ".java", ".go", ".rb", ".php", ".cs")
         for dirpath, _, filenames in os.walk(root):
             for fn in filenames:
-                if fn.endswith(".py"):
+                if fn.endswith(code_extensions):
                     scan_files.append(os.path.join(dirpath, fn))
 
     # Scan each file
