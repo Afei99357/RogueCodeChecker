@@ -46,24 +46,22 @@ ollama pull qwen3
 
 ### CLI
 
-**Basic scan:**
+**Using the wrapper script (easiest):**
 ```bash
-uv run python -m osscheck_cli scan --path test_samples
+# Comprehensive scan with all tools and custom rules
+bash scripts/scan_local.sh myproject/
+
+# With LLM review (requires Ollama + Qwen3)
+bash scripts/scan_local.sh myproject/ --llm
 ```
 
-**With AI security rules:**
+**Direct CLI (full control):**
 ```bash
+# All tools + custom rules + LLM review
 uv run python -m osscheck_cli scan \
   --path myproject/ \
-  --semgrep-config p/security-audit,roguecheck/rules/ \
-  --format md
-```
-
-**With LLM code review:**
-```bash
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --tools semgrep,detect-secrets,llm-review \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
+  --semgrep-config p/security-audit,p/owasp-top-ten,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3
 ```
@@ -80,71 +78,36 @@ uv run streamlit run streamlit_app_oss/main.py
 
 ## CLI Usage
 
-### Basic Commands
+### Wrapper Script Usage
 
-**Scan a directory:**
+**Basic scan (no LLM):**
 ```bash
-uv run python -m osscheck_cli scan --path myproject/
+bash scripts/scan_local.sh myproject/
 ```
 
-**Scan a single file:**
+**With LLM review:**
 ```bash
-uv run python -m osscheck_cli scan --path myfile.py --format md
+bash scripts/scan_local.sh myproject/ --llm
 ```
 
-**Generate per-file reports:**
+**Custom output directory:**
 ```bash
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --per-file-out-dir reports/ \
-  --format md
+bash scripts/scan_local.sh myproject/ --llm --out my_reports/
 ```
 
-### Using AI Security Features
-
-**Option 1: Custom Semgrep Rules (Fast)**
+**Other options:**
 ```bash
-# Use custom AI security rules for prompt injection detection
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --semgrep-config roguecheck/rules/ \
-  --format md
+bash scripts/scan_local.sh myproject/ --llm --format json --out reports/
 ```
 
-**Option 2: LLM Review (Thorough)**
+### Direct CLI Usage
+
+**Comprehensive scan with everything:**
 ```bash
-# Local Ollama with Qwen3
 uv run python -m osscheck_cli scan \
   --path myproject/ \
-  --tools semgrep,detect-secrets,llm-review \
-  --llm-backend ollama \
-  --llm-model qwen3
-
-# Switch to Llama3 or CodeLlama
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --tools llm-review \
-  --llm-backend ollama \
-  --llm-model llama3  # or codellama
-
-# Databricks Foundation Models
-export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-export DATABRICKS_TOKEN=dapi...
-export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat
-
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --tools llm-review \
-  --llm-backend databricks
-```
-
-**Option 3: Combined (Best Coverage)**
-```bash
-# Use both custom rules + LLM review
-uv run python -m osscheck_cli scan \
-  --path myproject/ \
-  --tools semgrep,detect-secrets,sqlfluff,shellcheck,llm-review \
-  --semgrep-config p/security-audit,roguecheck/rules/ \
+  --tools semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review \
+  --semgrep-config p/security-audit,p/owasp-top-ten,roguecheck/rules/ \
   --llm-backend ollama \
   --llm-model qwen3 \
   --per-file-out-dir reports/
