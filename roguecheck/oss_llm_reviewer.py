@@ -210,15 +210,34 @@ def scan_with_llm_review(
     # Determine files to scan
     scan_files: List[str] = []
     if files:
+        # If explicit file list provided, scan all of them
         scan_files = [f for f in files if os.path.isfile(f)]
     elif os.path.isfile(root):
         scan_files = [root]
     elif os.path.isdir(root):
-        # Scan code files (Python, JavaScript, Java, etc.)
-        code_extensions = (".py", ".js", ".ts", ".java", ".go", ".rb", ".php", ".cs")
+        # When scanning a directory, scan all code files (skip binaries, images, etc.)
+        code_extensions = (
+            ".py",
+            ".js",
+            ".ts",
+            ".java",
+            ".go",
+            ".rb",
+            ".php",
+            ".cs",
+            ".sh",
+            ".bash",
+            ".sql",
+            ".tf",
+            ".yaml",
+            ".yml",
+            ".json",
+            ".md",
+            ".txt",
+        )
         for dirpath, _, filenames in os.walk(root):
             for fn in filenames:
-                if fn.endswith(code_extensions):
+                if fn.endswith(code_extensions) or fn == "Dockerfile":
                     scan_files.append(os.path.join(dirpath, fn))
 
     # Scan each file
