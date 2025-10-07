@@ -63,25 +63,41 @@ def extract_embedded_snippets(text: str) -> List[Tuple[str, str, int]]:
     Very lightweight heuristics to augment coverage across host languages.
     """
     out: List[Tuple[str, str, int]] = []
+
+    # Track fenced code block ranges to avoid duplicate extraction
+    fenced_ranges: List[Tuple[int, int]] = []
+
     # Fenced code blocks ```sql ... ``` or ```bash ... ```
     for m in re.finditer(
         r"```(sql|postgres|tsql|bigquery)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL
     ):
         out.append((".sql", m.group(2).strip(), _line_from_index(text, m.start(2))))
+        fenced_ranges.append((m.start(), m.end()))
     for m in re.finditer(
         r"```(bash|sh|shell)\s*(.*?)```", text, re.IGNORECASE | re.DOTALL
     ):
         out.append((".sh", m.group(2).strip(), _line_from_index(text, m.start(2))))
-    # Inline SQL hints: capture lines around statements
+        fenced_ranges.append((m.start(), m.end()))
+
+    def is_in_fenced_block(pos: int) -> bool:
+        """Check if position is inside any fenced code block."""
+        return any(start <= pos < end for start, end in fenced_ranges)
+
+    # Inline SQL hints: capture lines around statements (skip if in fenced blocks)
     for m in SQL_HINT.finditer(text):
+        if is_in_fenced_block(m.start()):
+            continue  # Skip - already extracted as fenced block
         # Grab up to next semicolon or 5 lines
         start = m.start()
         segment = text[start : start + 1000]
         semi = segment.find(";")
         snippet = segment[: semi + 1] if semi != -1 else segment.splitlines()[0]
         out.append((".sql", snippet.strip(), _line_from_index(text, start)))
-    # Shell hints: capture the line
+
+    # Shell hints: capture the line (skip if in fenced blocks)
     for m in SHELL_HINT.finditer(text):
+        if is_in_fenced_block(m.start()):
+            continue  # Skip - already extracted as fenced block
         line_start = text.rfind("\n", 0, m.start()) + 1
         line_end = text.find("\n", m.start())
         if line_end == -1:
