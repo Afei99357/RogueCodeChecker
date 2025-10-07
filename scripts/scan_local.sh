@@ -6,12 +6,14 @@ usage() {
 Usage: $0 <path> [--format md|json|sarif] [--out <dir>] [--packs <packs>] [--no-sql-strict] [--llm]
 
 Examples:
-  $0 test_samples                         # Quick scan, Markdown to stdout, per-file reports in ./out_cli
-  $0 . --format json --out out_json       # JSON to combined stdout and per-file JSON in out_json/
+  $0 test_samples                         # Quick scan, per-file reports in ./test_output_TIMESTAMP/
+  $0 . --format json --out my_reports     # JSON to combined stdout and per-file JSON in my_reports/
   $0 . --packs auto                       # Use Semgrep auto rules if registry is blocked
   $0 test_samples --llm                   # Include LLM review with Ollama/Qwen3
 
 Notes:
+  - Output directory defaults to test_output_YYYYMMDD_HHMMSS (unique per run)
+  - Use --out <dir> to specify custom output directory
   - Requires Python deps installed (uv sync or pip install -r requirements.txt)
   - shellcheck is optional (install via brew/apt for Bash analysis)
   - LLM review requires Ollama running with qwen3 model (ollama pull qwen3)
@@ -22,7 +24,9 @@ if [[ $# -lt 1 ]]; then usage; exit 1; fi
 
 TARGET="$1"; shift || true
 FORMAT="md"
-OUT_DIR="out_cli"
+# Generate timestamp for unique output directory
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+OUT_DIR="test_output_${TIMESTAMP}"
 PACKS="p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript,roguecheck/rules/"
 EXTRA_TOOLS="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict"
 NO_SQL_STRICT="false"
