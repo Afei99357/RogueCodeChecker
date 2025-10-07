@@ -31,9 +31,6 @@ Security scanner for detecting malicious code patterns, vulnerabilities, and AI-
 ```bash
 # Using uv (recommended)
 uv sync
-
-# Or using pip
-pip install -r requirements.txt
 ```
 
 **Optional: Install Ollama for local LLM review**
@@ -363,7 +360,7 @@ export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat                     # Required
 
 ### ShellCheck not found
 - Install via package manager: `brew install shellcheck` or `apt install shellcheck`
-- Or rely on `shellcheck-py` (already in requirements.txt)
+- Or rely on `shellcheck-py` (already in pyproject.toml dependencies)
 
 ### Semgrep permission errors in containers
 - Set writable home: `export SEMGREP_USER_HOME=$(pwd)/.semgrephome`
