@@ -3,20 +3,20 @@ import re
 from typing import List, Optional
 
 from .models import Finding, Position
-from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
-
 
 GRANT_ALL_RE = re.compile(r"\bGRANT\s+ALL\b", re.IGNORECASE)
 DROP_TABLE_RE = re.compile(r"\bDROP\s+TABLE\b(?!\s+IF\s+EXISTS\s+temp)", re.IGNORECASE)
-DELETE_STMT_RE = re.compile(r"\bDELETE\s+FROM\s+([A-Za-z0-9_.\"]+)(.*?);", re.IGNORECASE | re.DOTALL)
+DELETE_STMT_RE = re.compile(
+    r"\bDELETE\s+FROM\s+([A-Za-z0-9_.\"]+)(.*?);", re.IGNORECASE | re.DOTALL
+)
 
 
 def _line_from_index(text: str, idx: int) -> int:
     return text.count("\n", 0, idx) + 1
 
 
-def scan_strict_sql(root: str, policy: Policy, files: Optional[List[str]] = None) -> List[Finding]:
+def scan_strict_sql(root: str, files: Optional[List[str]] = None) -> List[Finding]:
     findings: List[Finding] = []
 
     # Collect targets
@@ -83,4 +83,3 @@ def scan_strict_sql(root: str, policy: Policy, files: Optional[List[str]] = None
                 )
 
     return findings
-

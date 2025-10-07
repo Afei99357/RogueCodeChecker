@@ -10,7 +10,6 @@ import pandas as pd
 
 from roguecheck.models import Finding
 from roguecheck.oss_runner import run_oss_tools
-from roguecheck.policy import Policy
 
 
 class ScannerService:
@@ -32,7 +31,6 @@ class ScannerService:
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 file_paths = self._save_uploaded_files(uploaded_files, temp_dir)
-                policy = self._load_policy()
                 tools = self.config.get(
                     "oss_tools", ["semgrep", "detect-secrets", "sqlfluff", "shellcheck"]
                 )
@@ -110,7 +108,6 @@ class ScannerService:
                 # Pass explicit file list so tools target exactly the uploaded files
                 all_findings = run_oss_tools(
                     root=temp_dir,
-                    policy=policy,
                     tools=list(tools),
                     semgrep_config=semgrep_packs,
                     files=file_paths,
@@ -169,14 +166,6 @@ class ScannerService:
                 f.write(uploaded_file.getvalue())
             file_paths.append(file_path)
         return file_paths
-
-    def _load_policy(self) -> Policy:
-        try:
-            return Policy.load()
-        except Exception:
-            from roguecheck.policy import DEFAULT_ALLOWLISTS, DEFAULT_POLICY
-
-            return Policy(DEFAULT_POLICY, DEFAULT_ALLOWLISTS)
 
     def _generate_summary(self, findings: List[Finding]) -> Dict[str, Any]:
         if not findings:

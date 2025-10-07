@@ -2,11 +2,10 @@ import os
 from typing import List, Optional
 
 from .models import Finding, Position
-from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
 
-def scan_with_sqlcheck(root: str, policy: Policy, files: Optional[List[str]] = None) -> List[Finding]:
+def scan_with_sqlcheck(root: str, files: Optional[List[str]] = None) -> List[Finding]:
     """
     Use the sqlcheck Python library to analyze SQL files for anti-patterns.
     Only runs on .sql targets. If the library is unavailable, returns a low-sev
@@ -70,4 +69,3 @@ def scan_with_sqlcheck(root: str, policy: Policy, files: Optional[List[str]] = N
             )
 
     return findings
-

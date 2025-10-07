@@ -10,7 +10,6 @@ from typing import List, Literal, Optional
 
 from .llm_backends import LLMBackend, get_default_backend
 from .models import Finding, Position
-from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
 SECURITY_REVIEW_PROMPT = """You are a security expert reviewing code for vulnerabilities. Analyze the code below and identify ALL security issues, even if they appear to be in test files or have explanatory comments.
@@ -144,7 +143,6 @@ def parse_llm_findings(response: str, file_path: str, code: str) -> List[Finding
 
 def scan_with_llm_review(
     root: str,
-    policy: Policy,
     files: Optional[List[str]] = None,
     backend: Optional[LLMBackend] = None,
     max_file_size: int = 10000,
@@ -154,7 +152,6 @@ def scan_with_llm_review(
 
     Args:
         root: Root directory being scanned
-        policy: Policy configuration
         files: Optional list of specific files to scan
         backend: LLM backend to use (defaults to auto-detected)
         max_file_size: Max file size in bytes to review (default 10KB)

@@ -5,10 +5,10 @@ import subprocess
 from typing import List, Optional
 
 from .models import Finding, Position
-from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
 _ORIG_CWD = os.getcwd()
+
 
 def _which_abs(name: str) -> Optional[str]:
     p = shutil.which(name)
@@ -25,7 +25,7 @@ def _severity_for_secret(secret_type: str) -> str:
 
 
 def scan_with_detect_secrets(
-    root: str, policy: Policy, files: Optional[List[str]] = None
+    root: str, files: Optional[List[str]] = None
 ) -> List[Finding]:
     findings: List[Finding] = []
     ds_bin = _which_abs("detect-secrets")
@@ -45,7 +45,12 @@ def scan_with_detect_secrets(
 
     targets: List[str] = []
     if files:
-        targets.extend([f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f)) for f in files])
+        targets.extend(
+            [
+                f if os.path.isabs(f) else os.path.abspath(os.path.join(root, f))
+                for f in files
+            ]
+        )
     else:
         targets.append(os.path.abspath(root))
 

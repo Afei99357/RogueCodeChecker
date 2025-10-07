@@ -5,7 +5,6 @@ import subprocess
 from typing import List, Optional
 
 from .models import Finding, Position
-from .policy import Policy
 from .utils import read_text, relpath, safe_snippet
 
 _ORIG_CWD = os.getcwd()
@@ -31,7 +30,6 @@ def _map_severity(level: str) -> str:
 
 def scan_with_semgrep(
     root: str,
-    policy: Policy,
     semgrep_config: str = "auto",
     files: Optional[List[str]] = None,
 ) -> List[Finding]:

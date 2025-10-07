@@ -4,14 +4,12 @@ from typing import List, Optional
 
 from .models import Finding
 from .oss_nb_preprocess import preprocess_notebooks
-from .policy import Policy
 from .sniff import extract_embedded_snippets, guess_extensions
 from .utils import read_text, safe_snippet
 
 
 def run_oss_tools(
     root: str,
-    policy: Policy,
     tools: List[str],
     semgrep_config: str = "auto",
     files: Optional[List[str]] = None,
@@ -124,7 +122,6 @@ def run_oss_tools(
             all_findings.extend(
                 scan_with_semgrep(
                     root=root,
-                    policy=policy,
                     semgrep_config=semgrep_config,
                     files=combined_files,
                 )
@@ -133,43 +130,35 @@ def run_oss_tools(
             from .oss_detect_secrets import scan_with_detect_secrets
 
             all_findings.extend(
-                scan_with_detect_secrets(root=root, policy=policy, files=combined_files)
+                scan_with_detect_secrets(root=root, files=combined_files)
             )
         if "sqlfluff" in tools:
             from .oss_sqlfluff import scan_with_sqlfluff
 
-            all_findings.extend(
-                scan_with_sqlfluff(root=root, policy=policy, files=combined_files)
-            )
+            all_findings.extend(scan_with_sqlfluff(root=root, files=combined_files))
         if "shellcheck" in tools:
             from .oss_shellcheck import scan_with_shellcheck
 
-            all_findings.extend(
-                scan_with_shellcheck(root=root, policy=policy, files=combined_files)
-            )
+            all_findings.extend(scan_with_shellcheck(root=root, files=combined_files))
         if "sql-strict" in tools:
             from .oss_sql_strict import scan_strict_sql
 
             # Run on root to catch all real .sql files
-            all_findings.extend(scan_strict_sql(root=root, policy=policy, files=None))
+            all_findings.extend(scan_strict_sql(root=root, files=None))
             # Additionally run on generated snippet files that are .sql and live outside root
             gen_sql = [p for p in (generated or []) if p.lower().endswith(".sql")]
             if gen_sql:
-                all_findings.extend(
-                    scan_strict_sql(root=root, policy=policy, files=gen_sql)
-                )
+                all_findings.extend(scan_strict_sql(root=root, files=gen_sql))
         if "sqlcheck" in tools:
             from .oss_sqlcheck import scan_with_sqlcheck
 
-            all_findings.extend(
-                scan_with_sqlcheck(root=root, policy=policy, files=combined_files)
-            )
+            all_findings.extend(scan_with_sqlcheck(root=root, files=combined_files))
         if "llm-review" in tools:
             from .oss_llm_reviewer import scan_with_llm_review
 
             all_findings.extend(
                 scan_with_llm_review(
-                    root=root, policy=policy, files=combined_files, backend=llm_backend
+                    root=root, files=combined_files, backend=llm_backend
                 )
             )
         # Map findings produced on generated temp files back to their origin file and line

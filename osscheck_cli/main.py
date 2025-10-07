@@ -3,7 +3,6 @@ import os
 import sys
 
 from roguecheck.models import Finding
-from roguecheck.policy import Policy
 from roguecheck.report import SEV_ORDER, to_json, to_markdown, to_sarif
 
 FORMATS = {"md": "markdown", "json": "json", "sarif": "sarif"}
@@ -65,8 +64,6 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     if args.cmd == "scan":
-        pol = Policy.load()
-
         # Optional explicit file list
         files = None
         if args.paths_from:
@@ -103,7 +100,6 @@ def main(argv=None):
 
         findings = run_oss_tools(
             root=args.path,
-            policy=pol,
             tools=selected,
             semgrep_config=args.semgrep_config,
             files=files,

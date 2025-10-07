@@ -5,8 +5,7 @@ import subprocess
 from typing import List, Optional
 
 from .models import Finding, Position
-from .policy import Policy
-from .utils import relpath, read_text, safe_snippet
+from .utils import read_text, relpath, safe_snippet
 
 
 def _which_abs(name: str) -> Optional[str]:
@@ -17,15 +16,15 @@ def _which_abs(name: str) -> Optional[str]:
 
 
 def _map_level(level: str) -> str:
-    l = (level or "").lower()
-    if l == "error":
+    level_lower = (level or "").lower()
+    if level_lower == "error":
         return "high"
-    if l == "warning":
+    if level_lower == "warning":
         return "medium"
     return "low"
 
 
-def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] = None) -> List[Finding]:
+def scan_with_shellcheck(root: str, files: Optional[List[str]] = None) -> List[Finding]:
     findings: List[Finding] = []
     # Build targets (.sh or .bash if explicit list, else scan root)
     targets: List[str] = []
@@ -33,7 +32,11 @@ def scan_with_shellcheck(root: str, policy: Policy, files: Optional[List[str]] =
         for f in files:
             ext = os.path.splitext(f)[1].lower()
             if ext in {".sh", ".bash"}:
-                targets.append(os.path.abspath(os.path.join(root, f)) if not os.path.isabs(f) else f)
+                targets.append(
+                    os.path.abspath(os.path.join(root, f))
+                    if not os.path.isabs(f)
+                    else f
+                )
     else:
         for dirpath, _, filenames in os.walk(root):
             for fn in filenames:
