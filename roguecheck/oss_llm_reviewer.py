@@ -37,6 +37,8 @@ GAP_FILLING_PROMPT = """You are a security expert reviewing code for vulnerabili
 - Analyze data flow and control flow
 - Ignore comments - analyze actual code behavior
 - Even if it's a test file, report all vulnerabilities
+- **IMPORTANT**: Report only ONE vulnerability per line of code (group related issues together)
+- If a line has multiple related problems, combine them into a single finding with the most specific title
 
 For each vulnerability found, respond in this EXACT format:
 
@@ -89,6 +91,8 @@ ENRICHMENT_PROMPT = """You are a security expert reviewing code. Static analysis
 - Focus on semantic/contextual security problems
 - Analyze how the code is used in context
 - Look for indirect/complex patterns of the critical vulnerabilities
+- **IMPORTANT**: Report only ONE vulnerability per line of code (group related issues together)
+- If a line has multiple related problems, combine them into a single finding with the most specific title
 
 For each NEW vulnerability found, respond in this EXACT format:
 
