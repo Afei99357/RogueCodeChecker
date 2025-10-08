@@ -207,4 +207,13 @@ def run_oss_tools(
                 if f.path == ".":
                     f.path = root_basename
 
-    return all_findings
+        # Deduplicate findings (same rule_id, path, and line number)
+        seen = set()
+        deduped_findings = []
+        for f in all_findings:
+            key = (f.rule_id, f.path, f.position.line)
+            if key not in seen:
+                seen.add(key)
+                deduped_findings.append(f)
+
+    return deduped_findings
