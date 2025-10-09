@@ -180,27 +180,28 @@ def render_findings_table(
             mime="application/zip",
         )
 
-        # Always show detailed view in expander
-        with st.expander("📋 Detailed View", expanded=True):
-            for idx, row in filtered_df.iterrows():
-                with st.expander(f"{row['Rule ID']} - {row['File']}:{row['Line']}"):
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.write(f"**Severity:** {row['Severity'].title()}")
-                        st.write(f"**File:** {row['File']}")
-                        st.write(f"**Line:** {row['Line']}")
-                    with c2:
-                        st.write(f"**Rule:** {row['Rule ID']}")
-                        if row.get("Column"):
-                            st.write(f"**Column:** {row['Column']}")
-                    st.write("**Issue:**")
-                    st.write(row["Message"])
-                    if row["Recommendation"]:
-                        st.write("**Recommendation:**")
-                        st.info(row["Recommendation"])
-                    if row.get("Snippet"):
-                        st.write("**Code Context:**")
-                        st.code(row["Snippet"], language="text")
+        # Show detailed view with individual expanders (not nested)
+        st.markdown("---")
+        st.subheader("📋 Detailed View")
+        for idx, row in filtered_df.iterrows():
+            with st.expander(f"{row['Rule ID']} - {row['File']}:{row['Line']}"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.write(f"**Severity:** {row['Severity'].title()}")
+                    st.write(f"**File:** {row['File']}")
+                    st.write(f"**Line:** {row['Line']}")
+                with c2:
+                    st.write(f"**Rule:** {row['Rule ID']}")
+                    if row.get("Column"):
+                        st.write(f"**Column:** {row['Column']}")
+                st.write("**Issue:**")
+                st.write(row["Message"])
+                if row["Recommendation"]:
+                    st.write("**Recommendation:**")
+                    st.info(row["Recommendation"])
+                if row.get("Snippet"):
+                    st.write("**Code Context:**")
+                    st.code(row["Snippet"], language="text")
     else:
         st.info("No issues match the current filters")
 
