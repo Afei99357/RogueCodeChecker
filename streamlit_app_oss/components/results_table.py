@@ -161,7 +161,7 @@ def render_findings_table(
             styled_df = filtered_df[display_columns].style.map(
                 style_severity, subset=["Severity"]
             )
-            st.dataframe(styled_df, width="stretch", hide_index=False)
+            st.dataframe(styled_df, use_container_width=True, hide_index=False)
         else:
             # Per-file tables
             for file_name in sorted(filtered_df["File"].unique()):
@@ -170,7 +170,7 @@ def render_findings_table(
                 styled_df = sub[display_columns].style.map(
                     style_severity, subset=["Severity"]
                 )
-                st.dataframe(styled_df, width="stretch", hide_index=False)
+                st.dataframe(styled_df, use_container_width=True, hide_index=False)
 
         zip_bytes = _build_markdown_zip(findings_by_file, files_scanned)
         st.download_button(
