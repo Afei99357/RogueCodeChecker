@@ -45,6 +45,36 @@ def run_oss_tools(
         generated = preprocess_notebooks(discover_list, tmp)
         # Map of generated temp file -> (origin_abs_path, origin_start_line)
         origin_map: dict[str, tuple[str, int]] = {}
+        # Map of generated temp file -> cell_index (for notebook cells)
+        cell_index_map: dict[str, int] = {}
+
+        # Map notebook cell extractions back to their source .ipynb file
+        import re
+
+        for gen_path in generated:
+            gen_base = os.path.basename(gen_path)
+            # Match pattern: {base}__cell{idx:03d}.py or {base}__cell{idx:03d}.sql or {base}__sqlblock{idx:03d}.sql
+            if "__cell" in gen_base or "__sqlblock" in gen_base:
+                # Extract the original notebook name (everything before __cell or __sqlblock)
+                original_base = gen_base.split("__cell")[0].split("__sqlblock")[0]
+                for discover_path in discover_list:
+                    discover_base = os.path.splitext(os.path.basename(discover_path))[0]
+                    if discover_base == original_base:
+                        abs_origin = (
+                            discover_path
+                            if os.path.isabs(discover_path)
+                            else os.path.abspath(discover_path)
+                        )
+                        # Parse cell index from filename
+                        cell_match = re.search(r"__(cell|sqlblock)(\d+)", gen_base)
+                        if cell_match:
+                            cell_idx = int(cell_match.group(2))
+                            cell_index_map[gen_path] = cell_idx
+                        origin_map[gen_path] = (
+                            abs_origin,
+                            1,
+                        )  # Start line is 1 for the cell
+                        break
         # Generic snippet extraction for all files (SQL / Shell inside other hosts)
         for p in files if files is not None else all_real_files:
             try:
@@ -184,14 +214,30 @@ def run_oss_tools(
                     try:
                         # Rebase path to the origin file relative to root
                         f.path = os.path.relpath(origin_path, root)
-                        # Adjust line number relative to snippet start
-                        if getattr(f, "position", None):
-                            f.position.line = (
-                                int(origin_start)
-                                + int(getattr(f.position, "line", 1))
-                                - 1
-                            )
-                            # Recompute snippet from origin file for accurate details view
+
+                        # Check if this is a notebook cell finding
+                        if f_abs in cell_index_map:
+                            cell_idx = cell_index_map[f_abs]
+                            original_line = int(getattr(f.position, "line", 1))
+                            # Store cell info in metadata for UI display
+                            if not f.meta:
+                                f.meta = {}
+                            f.meta["cell_index"] = cell_idx
+                            f.meta["line_in_cell"] = original_line
+                            # Keep position.line as the line within the cell for sorting/dedup
+                            f.position.line = original_line
+                        else:
+                            # Adjust line number relative to snippet start (for embedded snippets)
+                            if getattr(f, "position", None):
+                                f.position.line = (
+                                    int(origin_start)
+                                    + int(getattr(f.position, "line", 1))
+                                    - 1
+                                )
+
+                        # For notebook cells, keep the original snippet from the extracted cell
+                        # For other cases, recompute snippet from origin file
+                        if f_abs not in cell_index_map:
                             try:
                                 txt = read_text(origin_path)
                                 f.snippet = safe_snippet(txt, f.position.line)

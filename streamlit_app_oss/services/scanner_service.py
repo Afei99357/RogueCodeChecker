@@ -4,7 +4,7 @@ Scanner Service - Adapter layer between Streamlit and OSS scanners
 
 import os
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -138,13 +138,20 @@ class ScannerService:
             return pd.DataFrame()
         data = []
         for finding in findings:
+            # Format line display: check if this is a notebook cell finding
+            line_display: Union[int, str] = finding.position.line
+            if finding.meta and "cell_index" in finding.meta:
+                cell_idx = finding.meta["cell_index"]
+                line_in_cell = finding.meta.get("line_in_cell", finding.position.line)
+                line_display = f"cell#{cell_idx}, line {line_in_cell}"
+
             data.append(
                 {
                     "File": finding.path,
                     "Rule ID": finding.rule_id,
                     "Severity": finding.severity,
                     "Message": finding.message,
-                    "Line": finding.position.line,
+                    "Line": line_display,
                     "Column": finding.position.column,
                     "Recommendation": finding.recommendation
                     or "No recommendation available",
