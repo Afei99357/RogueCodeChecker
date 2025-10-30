@@ -19,18 +19,15 @@ from streamlit_app_oss.services.scanner_service import ScannerService
 
 def main():
     st.set_page_config(
-        page_title="OSS Security Scanner (Semgrep)",
-        page_icon="🧩",
+        page_title="Security Scanner",
+        page_icon="🔒",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 
     st.markdown(
-        '<h1 class="main-header">🧩 OSS Security Scanner (Semgrep)</h1>',
+        '<h1 class="main-header">🔒 Security Scanner</h1>',
         unsafe_allow_html=True,
-    )
-    st.caption(
-        "This app uses open-source scanners only (Semgrep). Built-in rules are disabled."
     )
 
     # Sidebar config (force engine=oss)
@@ -50,21 +47,18 @@ def main():
         st.subheader("🔍 Scan Results")
         if uploaded_files:
             scanner_service = ScannerService(config)
-            with st.spinner("Running Semgrep..."):
+            with st.spinner("Running security scan..."):
                 results = scanner_service.scan_uploaded_files(uploaded_files)
             if results.get("error"):
                 st.error(f"❌ Scanning failed: {results['error']}")
             else:
                 render_results(results, scanner_service)
         else:
-            st.info("👆 Upload files to start scanning with Semgrep")
+            st.info("👆 Upload files to start scanning")
 
     st.markdown("---")
     render_diagnostics(
         config.get("semgrep_packs", "p/security-audit,p/python,p/javascript")
-    )
-    st.caption(
-        "Powered by open-source tools: Semgrep, detect-secrets, sqlfluff, shellcheck."
     )
 
 
