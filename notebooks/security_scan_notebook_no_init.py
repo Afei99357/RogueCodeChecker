@@ -114,7 +114,7 @@ print("=" * 60)
 # Modify these values as needed
 
 # Path to scan (repository or directory)
-SCAN_PATH = "/Workspace/Users/eliao@bpcs.com/gogue_code_test"  # Change this!
+SCAN_PATH = "/Workspace/Users/eliao@bpcs.com/gogue_code_test/files"  # Change this!
 
 # Tools to use (comma-separated)
 # gitleaks will be available if installation in cell 2 succeeded
@@ -147,7 +147,7 @@ import sys
 import os
 
 # Add the repository root to Python path so we can import roguecheck modules
-repo_root = "/Workspace/Repos/<username>/RogueCodeChecker"  # Change this!
+repo_root = "/Workspace/Users/eliao@bpcs.com/RogueCodeChecker"  # Change this!
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
