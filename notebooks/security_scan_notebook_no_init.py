@@ -114,7 +114,7 @@ print("=" * 60)
 # Modify these values as needed
 
 # Path to scan (repository or directory)
-SCAN_PATH = "/Workspace/Repos/<username>/<repo-name>"  # Change this!
+SCAN_PATH = "/Workspace/Users/eliao@bpcs.com/gogue_code_test"  # Change this!
 
 # Tools to use (comma-separated)
 # gitleaks will be available if installation in cell 2 succeeded
@@ -130,8 +130,8 @@ ENABLE_LLM_REVIEW = False  # Set to True to enable LLM review
 
 # Output configuration
 OUTPUT_FORMAT = "md"  # Options: md, json, sarif
-OUTPUT_PATH = "/dbfs/security_scans/scan_report.md"
-PER_FILE_OUTPUT_DIR = "/dbfs/security_scans/per_file_reports/"
+OUTPUT_PATH = "/Workspace/Users/eliao@bpcs.com/gogue_code_test/security_scans/scan_report.md"
+PER_FILE_OUTPUT_DIR = "/Workspace/Users/eliao@bpcs.com/gogue_code_test/security_scans/per_file_reports/"
 
 # Fail threshold
 FAIL_ON_SEVERITY = "high"  # Options: low, medium, high, critical
@@ -139,15 +139,19 @@ FAIL_ON_SEVERITY = "high"  # Options: low, medium, high, critical
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Install RogueCodeChecker Package
+# MAGIC ## 3. Add RogueCodeChecker to Python Path
 
 # COMMAND ----------
 
-# Install the package (if not already installed)
-%pip install -e /Workspace/Repos/<username>/RogueCodeChecker
+import sys
+import os
 
-# Restart Python to load the package
-dbutils.library.restartPython()
+# Add the repository root to Python path so we can import roguecheck modules
+repo_root = "/Workspace/Repos/<username>/RogueCodeChecker"  # Change this!
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
+print(f"✓ Added {repo_root} to Python path")
 
 # COMMAND ----------
 
@@ -212,6 +216,53 @@ if ENABLE_LLM_REVIEW:
     print(f"✓ LLM endpoint set: {LLM_ENDPOINT}")
 
 print("✓ Databricks authentication: Automatic")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 5a. Test LLM Connection (Optional)
+# MAGIC
+# MAGIC Run this cell to verify the LLM endpoint is working before starting the scan.
+
+# COMMAND ----------
+
+if ENABLE_LLM_REVIEW:
+    from roguecheck.llm_backends import create_backend
+
+    print("=" * 60)
+    print("Testing LLM Connection")
+    print("=" * 60)
+
+    try:
+        # Create backend
+        backend = create_backend("databricks", endpoint_name=LLM_ENDPOINT)
+        print(f"✓ Backend initialized")
+        print(f"  Endpoint: {backend.endpoint_name}")
+        print(f"  Available: {backend.is_available()}")
+
+        # Test with a simple prompt
+        print("\n🧪 Testing with sample prompt...")
+        test_prompt = "Say 'Hello! LLM is working.' in one sentence."
+        response = backend.generate(test_prompt, max_tokens=50, temperature=0.1)
+
+        print(f"\n✅ LLM Response:")
+        print(f"  {response}")
+        print("\n" + "=" * 60)
+        print("✅ LLM is working correctly!")
+        print("=" * 60)
+
+    except Exception as e:
+        print("\n" + "=" * 60)
+        print(f"❌ LLM Test Failed: {e}")
+        print("=" * 60)
+        print("\nTroubleshooting:")
+        print("1. Check that the endpoint name is correct")
+        print("2. Verify the endpoint exists in Databricks serving endpoints")
+        print("3. Ensure the endpoint is in 'Ready' state")
+        print("4. Check that you have permissions to access the endpoint")
+else:
+    print("⚠️  LLM review is disabled (ENABLE_LLM_REVIEW = False)")
+    print("   Set ENABLE_LLM_REVIEW = True in the configuration to test LLM")
 
 # COMMAND ----------
 

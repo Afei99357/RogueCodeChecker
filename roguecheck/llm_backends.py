@@ -1,19 +1,13 @@
 """
 LLM Backend abstraction layer for code review.
 
-Supports multiple LLM backends:
-- Ollama (local models: qwen3, llama3, codellama, etc.)
+Supports:
 - Databricks Foundation Models (serving endpoints)
-- OpenAI (future)
-- Anthropic (future)
 """
 
-import json
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
-
-import requests
+from typing import Optional
 
 try:
     from mlflow.deployments import get_deploy_client
@@ -47,71 +41,6 @@ class LLMBackend(ABC):
     def is_available(self) -> bool:
         """Check if the backend is available and configured."""
         pass
-
-
-class OllamaBackend(LLMBackend):
-    """
-    Ollama backend for local LLM models.
-
-    Supports any model installed in Ollama: qwen3, llama3, codellama, etc.
-    """
-
-    def __init__(
-        self,
-        model: str = "qwen3",
-        endpoint: str = "http://localhost:11434",
-        timeout: int = 120,
-    ):
-        """
-        Initialize Ollama backend.
-
-        Args:
-            model: Model name (qwen3, llama3, codellama, etc.)
-            endpoint: Ollama API endpoint
-            timeout: Request timeout in seconds
-        """
-        self.model = model
-        self.endpoint = endpoint.rstrip("/")
-        self.timeout = timeout
-
-    def generate(
-        self, prompt: str, max_tokens: int = 2000, temperature: float = 0.1
-    ) -> str:
-        """Generate response using Ollama API."""
-        url = f"{self.endpoint}/api/generate"
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            },
-        }
-
-        try:
-            response = requests.post(url, json=payload, timeout=self.timeout)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("response", "").strip()
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Ollama API request failed: {e}")
-        except (KeyError, json.JSONDecodeError) as e:
-            raise RuntimeError(f"Failed to parse Ollama response: {e}")
-
-    def is_available(self) -> bool:
-        """Check if Ollama is running and model is available."""
-        try:
-            # Check if Ollama is running
-            response = requests.get(f"{self.endpoint}/api/tags", timeout=5)
-            response.raise_for_status()
-            models = response.json().get("models", [])
-
-            # Check if our model is installed
-            model_names = [m.get("name", "") for m in models]
-            return any(self.model in name for name in model_names)
-        except Exception:
-            return False
 
 
 class DatabricksBackend(LLMBackend):
@@ -214,24 +143,21 @@ class DatabricksBackend(LLMBackend):
         return bool(self.endpoint_name and self.client)
 
 
-def create_backend(backend_type: str = "ollama", **kwargs) -> LLMBackend:
+def create_backend(backend_type: str = "databricks", **kwargs) -> LLMBackend:
     """
     Factory function to create LLM backend.
 
     Args:
-        backend_type: Type of backend ("ollama", "databricks")
+        backend_type: Type of backend ("databricks")
         **kwargs: Backend-specific configuration
 
     Returns:
         Initialized LLM backend
 
     Examples:
-        >>> backend = create_backend("ollama", model="qwen3")
-        >>> backend = create_backend("ollama", model="llama3")
         >>> backend = create_backend("databricks", endpoint_name="my-llama-endpoint")
     """
     backends = {
-        "ollama": OllamaBackend,
         "databricks": DatabricksBackend,
     }
 
@@ -248,22 +174,12 @@ def get_default_backend() -> LLMBackend:
     """
     Get default LLM backend based on environment.
 
-    Priority:
-    1. SERVING_ENDPOINT set -> Databricks backend
-    2. Ollama running -> Ollama backend (qwen3)
-    3. Fallback -> Ollama backend (may fail if not running)
+    Reads from SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT environment variable.
 
     Returns:
-        Default LLM backend
-    """
-    # Check for Databricks configuration
-    if os.getenv("SERVING_ENDPOINT") or os.getenv("DATABRICKS_LLM_ENDPOINT"):
-        try:
-            return create_backend("databricks")
-        except (ValueError, ImportError, RuntimeError):
-            pass  # Missing endpoint name or MLflow, try Ollama
+        Default Databricks LLM backend
 
-    # Default to Ollama
-    model = os.getenv("OLLAMA_MODEL", "qwen3")
-    endpoint = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434")
-    return create_backend("ollama", model=model, endpoint=endpoint)
+    Raises:
+        ValueError: If no endpoint is configured
+    """
+    return create_backend("databricks")
