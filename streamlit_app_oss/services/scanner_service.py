@@ -31,8 +31,17 @@ class ScannerService:
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 file_paths = self._save_uploaded_files(uploaded_files, temp_dir)
+                # Note: gitleaks excluded from Streamlit defaults (requires binary not available in Databricks Apps)
+                # For CLI usage, users can manually add "gitleaks" to --tools argument
                 tools = self.config.get(
-                    "oss_tools", ["semgrep", "detect-secrets", "sqlfluff", "shellcheck"]
+                    "oss_tools",
+                    [
+                        "semgrep",
+                        "detect-secrets",
+                        "sqlfluff",
+                        "shellcheck",
+                        "pip-audit",
+                    ],
                 )
                 # Base packs from UI (or defaults)
                 semgrep_packs = str(

@@ -32,8 +32,8 @@ def main(argv=None):
     )
     sp.add_argument(
         "--tools",
-        default="semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict",
-        help="Comma-separated list of tools to run (semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict,llm-review)",
+        default="semgrep,detect-secrets,gitleaks,sqlfluff,shellcheck,sql-strict,pip-audit",
+        help="Comma-separated list of tools to run (semgrep,detect-secrets,gitleaks,sqlfluff,shellcheck,sql-strict,pip-audit,llm-review)",
     )
     sp.add_argument(
         "--no-sql-strict",
@@ -50,15 +50,9 @@ def main(argv=None):
     )
     sp.add_argument("--out", help="write report to file instead of stdout")
     sp.add_argument(
-        "--llm-backend",
-        default="ollama",
-        choices=["ollama", "databricks"],
-        help="LLM backend to use for llm-review tool (default: ollama)",
-    )
-    sp.add_argument(
-        "--llm-model",
-        default="qwen3",
-        help="LLM model name for Ollama backend (default: qwen3)",
+        "--llm-endpoint",
+        default=None,
+        help="Databricks serving endpoint name (reads from SERVING_ENDPOINT env var if not specified)",
     )
 
     args = p.parse_args(argv)
@@ -87,13 +81,17 @@ def main(argv=None):
             from roguecheck.llm_backends import create_backend
 
             try:
-                if args.llm_backend == "ollama":
-                    llm_backend = create_backend("ollama", model=args.llm_model)
-                elif args.llm_backend == "databricks":
-                    llm_backend = create_backend("databricks")
+                # Use specified endpoint or environment variable (SERVING_ENDPOINT)
+                llm_backend = create_backend(
+                    "databricks", endpoint_name=args.llm_endpoint
+                )
             except Exception as e:
                 print(
                     f"Warning: Failed to initialize LLM backend: {e}", file=sys.stderr
+                )
+                print(
+                    "Hint: Set SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT environment variable",
+                    file=sys.stderr,
                 )
 
         from roguecheck.oss_runner import run_oss_tools

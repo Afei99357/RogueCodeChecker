@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+
 import streamlit as st
 
 
@@ -10,7 +11,9 @@ def _which(name: str) -> str:
 
 def _version(cmd: list[str]) -> str:
     try:
-        out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=8)
+        out = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=8
+        )
         return (out.stdout or "").strip().splitlines()[0]
     except Exception:
         return "(unavailable)"
@@ -23,13 +26,16 @@ def render_diagnostics(semgrep_packs: str) -> None:
         with col1:
             st.caption(f"semgrep: {_which('semgrep')}")
             st.caption(f"detect-secrets: {_which('detect-secrets')}")
+            st.caption(f"gitleaks: {_which('gitleaks')}")
             st.caption(f"sqlfluff: {_which('sqlfluff')}")
             st.caption(f"shellcheck: {_which('shellcheck')}")
         with col2:
             st.caption(f"semgrep version: {_version(['semgrep', '--version'])}")
-            st.caption(f"detect-secrets version: {_version(['detect-secrets', '--version'])}")
+            st.caption(
+                f"detect-secrets version: {_version(['detect-secrets', '--version'])}"
+            )
+            st.caption(f"gitleaks version: {_version(['gitleaks', 'version'])}")
             st.caption(f"sqlfluff version: {_version(['sqlfluff', '--version'])}")
             st.caption(f"shellcheck version: {_version(['shellcheck', '--version'])}")
         st.write("Active Semgrep packs:")
         st.code(semgrep_packs or "(none)")
-

@@ -163,6 +163,10 @@ def run_oss_tools(
             oss_findings.extend(
                 scan_with_detect_secrets(root=root, files=combined_files)
             )
+        if "gitleaks" in tools:
+            from .oss_gitleaks import scan_with_gitleaks
+
+            oss_findings.extend(scan_with_gitleaks(root=root, files=combined_files))
         if "sqlfluff" in tools:
             from .oss_sqlfluff import scan_with_sqlfluff
 
@@ -184,6 +188,10 @@ def run_oss_tools(
             from .oss_sqlcheck import scan_with_sqlcheck
 
             oss_findings.extend(scan_with_sqlcheck(root=root, files=combined_files))
+        if "pip-audit" in tools:
+            from .oss_pip_audit import scan_with_pip_audit
+
+            oss_findings.extend(scan_with_pip_audit(root=root, files=combined_files))
 
         # Add OSS findings to results
         all_findings.extend(oss_findings)

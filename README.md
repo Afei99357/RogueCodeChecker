@@ -17,7 +17,8 @@ Security scanner for detecting malicious code patterns, vulnerabilities, and AI-
    - Supports qwen3, llama3, codellama, and custom models
 
 3. **Specialized Scanners**
-   - **Secrets**: detect-secrets for API keys, tokens, passwords
+   - **Secrets**: detect-secrets + GitLeaks (CLI only) for API keys, tokens, passwords
+   - **Dependencies**: pip-audit for Python package vulnerability scanning
    - **SQL**: sqlfluff linting + strict security checks (unsafe queries, missing WHERE)
    - **Shell**: ShellCheck for bash/sh scripts
    - **Notebooks**: Extracts and scans .ipynb and Databricks notebooks
@@ -37,6 +38,17 @@ uv sync
 ```bash
 # Install Ollama: https://ollama.ai
 ollama pull qwen3
+```
+
+**Optional: Install GitLeaks for additional secret scanning (CLI only)**
+```bash
+# macOS
+brew install gitleaks
+
+# Linux - download from GitHub releases
+wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+sudo mv gitleaks /usr/local/bin/
 ```
 
 ## Quick Start
@@ -116,7 +128,7 @@ uv run python -m osscheck_cli scan \
 |--------|-------------|---------|
 | `--path <dir\|file>` | Directory or file to scan | `.` |
 | `--format <md\|json\|sarif>` | Output format | `md` |
-| `--tools <list>` | Comma-separated tools to run | `semgrep,detect-secrets,sqlfluff,shellcheck,sql-strict` |
+| `--tools <list>` | Comma-separated tools to run | `semgrep,detect-secrets,gitleaks,sqlfluff,shellcheck,sql-strict,pip-audit` |
 | `--semgrep-config <packs>` | Semgrep packs (comma-separated) | `p/security-audit,p/owasp-top-ten,p/secrets,p/python,p/javascript,p/typescript` |
 | `--llm-backend <ollama\|databricks>` | LLM backend for code review | `ollama` |
 | `--llm-model <name>` | Model name for Ollama | `qwen3` |
@@ -361,6 +373,11 @@ export DATABRICKS_LLM_ENDPOINT=llama-2-70b-chat                     # Required
 ### ShellCheck not found
 - Install via package manager: `brew install shellcheck` or `apt install shellcheck`
 - Or rely on `shellcheck-py` (already in pyproject.toml dependencies)
+
+### GitLeaks not found
+- GitLeaks is optional and only available for CLI usage
+- Install via: `brew install gitleaks` (macOS) or download from [GitHub releases](https://github.com/gitleaks/gitleaks/releases)
+- Note: Not available in Streamlit app (Databricks Apps environment limitation)
 
 ### Semgrep permission errors in containers
 - Set writable home: `export SEMGREP_USER_HOME=$(pwd)/.semgrephome`
