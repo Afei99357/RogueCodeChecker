@@ -47,7 +47,64 @@ dbutils.library.restartPython()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Configuration
+# MAGIC ## 2. Install GitLeaks Binary (Optional)
+# MAGIC
+# MAGIC GitLeaks requires binary installation. This cell attempts to install it.
+# MAGIC May fail if permissions are insufficient (skip if it fails).
+
+# COMMAND ----------
+
+import subprocess
+import os
+
+print("=" * 60)
+print("Installing GitLeaks Binary")
+print("=" * 60)
+
+try:
+    # Try to install gitleaks binary to /tmp (writable in Databricks)
+    gitleaks_version = "8.18.4"
+    install_dir = "/tmp/gitleaks_bin"
+
+    # Download and extract
+    commands = f"""
+    mkdir -p {install_dir} && \
+    cd /tmp && \
+    wget -q https://github.com/gitleaks/gitleaks/releases/download/v{gitleaks_version}/gitleaks_{gitleaks_version}_linux_x64.tar.gz && \
+    tar -xzf gitleaks_{gitleaks_version}_linux_x64.tar.gz && \
+    mv gitleaks {install_dir}/ && \
+    chmod +x {install_dir}/gitleaks && \
+    rm gitleaks_{gitleaks_version}_linux_x64.tar.gz
+    """
+
+    result = subprocess.run(commands, shell=True, capture_output=True, text=True, timeout=60)
+
+    if result.returncode == 0:
+        # Add to PATH for this session
+        os.environ["PATH"] = f"{install_dir}:{os.environ.get('PATH', '')}"
+        print(f"✅ GitLeaks installed successfully to: {install_dir}/gitleaks")
+        print(f"   PATH updated for this session")
+
+        # Verify installation
+        verify = subprocess.run([f"{install_dir}/gitleaks", "version"], capture_output=True, text=True)
+        print(f"   Version: {verify.stdout.strip()}")
+
+        print("\n⚠️  Note: GitLeaks will only be available during this notebook session")
+        print("   It will need to be reinstalled when the cluster restarts")
+    else:
+        print(f"⚠️  GitLeaks installation failed: {result.stderr}")
+        print("   Continuing without gitleaks (other tools will still work)")
+
+except Exception as e:
+    print(f"⚠️  GitLeaks installation failed: {e}")
+    print("   Continuing without gitleaks (other tools will still work)")
+
+print("=" * 60)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 3. Configuration
 # MAGIC
 # MAGIC Set up the scan parameters below:
 
@@ -60,8 +117,8 @@ dbutils.library.restartPython()
 SCAN_PATH = "/Workspace/Repos/<username>/<repo-name>"  # Change this!
 
 # Tools to use (comma-separated)
-# Note: gitleaks is excluded (not available without init script)
-TOOLS = "semgrep,detect-secrets,pip-audit,sqlfluff,shellcheck,sql-strict"
+# gitleaks will be available if installation in cell 2 succeeded
+TOOLS = "semgrep,detect-secrets,gitleaks,pip-audit,sqlfluff,shellcheck,sql-strict"
 # Add "llm-review" for LLM-based semantic analysis
 
 # Semgrep security packs
