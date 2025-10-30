@@ -78,13 +78,11 @@ def main(argv=None):
         # Create LLM backend if llm-review is selected
         llm_backend = None
         if "llm-review" in selected:
-            from roguecheck.llm_backends import create_backend
+            from roguecheck.oss_llm_reviewer import create_llm_backend
 
             try:
                 # Use specified endpoint or environment variable (SERVING_ENDPOINT)
-                llm_backend = create_backend(
-                    "databricks", endpoint_name=args.llm_endpoint
-                )
+                llm_backend = create_llm_backend(endpoint_name=args.llm_endpoint)
             except Exception as e:
                 print(
                     f"Warning: Failed to initialize LLM backend: {e}", file=sys.stderr

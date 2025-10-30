@@ -227,7 +227,7 @@ print("✓ Databricks authentication: Automatic")
 # COMMAND ----------
 
 if ENABLE_LLM_REVIEW:
-    from roguecheck.llm_backends import create_backend
+    from roguecheck.oss_llm_reviewer import create_llm_backend
 
     print("=" * 60)
     print("Testing LLM Connection")
@@ -235,7 +235,7 @@ if ENABLE_LLM_REVIEW:
 
     try:
         # Create backend
-        backend = create_backend("databricks", endpoint_name=LLM_ENDPOINT)
+        backend = create_llm_backend(endpoint_name=LLM_ENDPOINT)
         print(f"✓ Backend initialized")
         print(f"  Endpoint: {backend.endpoint_name}")
         print(f"  Available: {backend.is_available()}")
@@ -272,7 +272,7 @@ else:
 # COMMAND ----------
 
 from roguecheck.oss_runner import run_oss_tools
-from roguecheck.llm_backends import create_backend
+from roguecheck.oss_llm_reviewer import create_llm_backend
 import os
 
 print("=" * 60)
@@ -291,7 +291,7 @@ if ENABLE_LLM_REVIEW and "llm-review" not in tools_list:
 llm_backend = None
 if "llm-review" in tools_list:
     try:
-        llm_backend = create_backend("databricks", endpoint_name=LLM_ENDPOINT)
+        llm_backend = create_llm_backend(endpoint_name=LLM_ENDPOINT)
         print("✓ LLM backend initialized")
     except Exception as e:
         print(f"⚠️  LLM backend initialization failed: {e}")

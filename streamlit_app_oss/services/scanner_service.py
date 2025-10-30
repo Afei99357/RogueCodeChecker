@@ -85,18 +85,12 @@ class ScannerService:
                 llm_backend = None
                 if self.config.get("enable_llm_review", False):
                     tools = list(tools) + ["llm-review"]
-                    from roguecheck.llm_backends import create_backend
+                    from roguecheck.oss_llm_reviewer import create_llm_backend
 
                     try:
-                        backend_type = self.config.get("llm_backend", "databricks")
-                        if backend_type == "databricks":
-                            # Use user-selected endpoint if provided
-                            endpoint_name = self.config.get("serving_endpoint")
-                            llm_backend = create_backend(
-                                "databricks", endpoint_name=endpoint_name
-                            )
-                        elif backend_type == "ollama":
-                            llm_backend = create_backend("ollama")
+                        # Use user-selected endpoint if provided
+                        endpoint_name = self.config.get("serving_endpoint")
+                        llm_backend = create_llm_backend(endpoint_name=endpoint_name)
                     except Exception as e:
                         # Add diagnostic finding if LLM backend fails
                         from roguecheck.models import Finding, Position

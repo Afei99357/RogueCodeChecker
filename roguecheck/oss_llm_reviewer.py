@@ -1,16 +1,149 @@
 """
 LLM-based code security reviewer.
 
-Uses local or cloud LLMs to perform semantic security analysis of code,
+Uses Databricks LLMs to perform semantic security analysis of code,
 detecting issues that pattern-based tools may miss.
 """
 
 import os
 from typing import List, Literal, Optional
 
-from .llm_backends import LLMBackend, get_default_backend
 from .models import Finding, Position
 from .utils import read_text, relpath, safe_snippet
+
+try:
+    from mlflow.deployments import get_deploy_client
+
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
+
+# ============================================================================
+# Databricks LLM Backend
+# ============================================================================
+
+
+class DatabricksLLMBackend:
+    """
+    Databricks Foundation Models backend for LLM-based code review.
+
+    Uses Databricks serving endpoints for model inference via MLflow deployments.
+    Automatically authenticates using workspace context when running in Databricks.
+    """
+
+    def __init__(
+        self,
+        endpoint_name: Optional[str] = None,
+        timeout: int = 120,
+    ):
+        """
+        Initialize Databricks backend.
+
+        Args:
+            endpoint_name: Databricks serving endpoint name
+            timeout: Request timeout in seconds
+
+        Environment variables (if endpoint_name not provided):
+            SERVING_ENDPOINT or DATABRICKS_LLM_ENDPOINT: Endpoint name
+        """
+        if not MLFLOW_AVAILABLE:
+            raise ImportError(
+                "MLflow is required for Databricks backend. "
+                "Install with: pip install mlflow"
+            )
+
+        self.endpoint_name = (
+            endpoint_name
+            or os.getenv("SERVING_ENDPOINT")
+            or os.getenv("DATABRICKS_LLM_ENDPOINT")
+        )
+        self.timeout = timeout
+
+        if not self.endpoint_name:
+            raise ValueError(
+                "Databricks backend requires endpoint_name. "
+                "Provide via constructor or environment variable: SERVING_ENDPOINT"
+            )
+
+        # Get MLflow deploy client (handles authentication automatically)
+        try:
+            self.client = get_deploy_client("databricks")
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize Databricks deploy client: {e}")
+
+    def generate(
+        self, prompt: str, max_tokens: int = 2000, temperature: float = 0.1
+    ) -> str:
+        """Generate response using Databricks serving endpoint via MLflow."""
+        # Convert prompt to chat messages format expected by Databricks endpoints
+        messages = [{"role": "user", "content": prompt}]
+
+        try:
+            response = self.client.predict(
+                endpoint=self.endpoint_name,
+                inputs={
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+            )
+
+            # Handle different response formats from Databricks models
+            # Agent/chat endpoints return "messages"
+            if "messages" in response:
+                return response["messages"][-1]["content"].strip()
+
+            # Foundation models return "choices"
+            elif "choices" in response:
+                choice_message = response["choices"][0]["message"]
+                content = choice_message.get("content", "")
+
+                # Handle list content format
+                if isinstance(content, list):
+                    combined = "".join(
+                        part.get("text", "")
+                        for part in content
+                        if part.get("type") == "text"
+                    )
+                    return combined.strip()
+
+                # Handle string content format
+                if isinstance(content, str):
+                    return content.strip()
+
+            raise RuntimeError(f"Unexpected Databricks response format: {response}")
+
+        except Exception as e:
+            raise RuntimeError(f"Databricks API request failed: {e}")
+
+    def is_available(self) -> bool:
+        """Check if Databricks endpoint is accessible."""
+        # If we have an endpoint name and client initialized, assume available
+        # The client handles authentication automatically in Databricks
+        return bool(self.endpoint_name and self.client)
+
+
+def create_llm_backend(endpoint_name: Optional[str] = None) -> DatabricksLLMBackend:
+    """
+    Create Databricks LLM backend.
+
+    Args:
+        endpoint_name: Databricks serving endpoint name (optional)
+
+    Returns:
+        Initialized Databricks LLM backend
+
+    Examples:
+        >>> backend = create_llm_backend("databricks-claude-sonnet-4-5")
+        >>> backend = create_llm_backend()  # Uses SERVING_ENDPOINT env var
+    """
+    return DatabricksLLMBackend(endpoint_name=endpoint_name)
+
+
+# ============================================================================
+# LLM Review Prompts
+# ============================================================================
 
 # Prompt for files with NO findings from OSS tools - do full review
 GAP_FILLING_PROMPT = """You are a security expert reviewing code for vulnerabilities. Static analysis tools found NO issues in this file, but they may have missed something.
@@ -207,8 +340,8 @@ def parse_llm_findings(response: str, file_path: str, code: str) -> List[Finding
 def scan_with_llm_review(
     root: str,
     files: Optional[List[str]] = None,
-    backend: Optional[LLMBackend] = None,
-    max_file_size: int = 10000,
+    backend: Optional[DatabricksLLMBackend] = None,
+    max_file_size: int = 60000,
     existing_findings: Optional[List[Finding]] = None,
 ) -> List[Finding]:
     """
@@ -221,8 +354,8 @@ def scan_with_llm_review(
     Args:
         root: Root directory being scanned
         files: Optional list of specific files to scan
-        backend: LLM backend to use (defaults to auto-detected)
-        max_file_size: Max file size in bytes to review (default 10KB)
+        backend: Databricks LLM backend to use (defaults to env var)
+        max_file_size: Max file size in bytes to review (default 60KB)
         existing_findings: Findings from OSS/rule-based tools (for enrichment mode)
 
     Returns:
@@ -233,7 +366,7 @@ def scan_with_llm_review(
     # Get or create backend
     if backend is None:
         try:
-            backend = get_default_backend()
+            backend = create_llm_backend()
         except Exception as e:
             # Return diagnostic finding if LLM not available
             findings.append(
@@ -244,7 +377,7 @@ def scan_with_llm_review(
                     path=relpath(root, os.getcwd()),
                     position=Position(1, 1),
                     snippet=None,
-                    recommendation="Install Ollama or configure Databricks endpoint to enable LLM review.",
+                    recommendation="Configure Databricks endpoint via SERVING_ENDPOINT environment variable.",
                     meta={"engine": "llm"},
                 )
             )
@@ -252,12 +385,11 @@ def scan_with_llm_review(
 
     # Check if backend is available
     if not backend.is_available():
-        # Provide recommendation based on backend type
-        recommendation = (
-            "Start Ollama service or verify Databricks endpoint configuration."
-        )
-        if hasattr(backend, "endpoint_name") and not backend.endpoint_name:
-            recommendation = "Missing SERVING_ENDPOINT environment variable."
+        recommendation = "Missing SERVING_ENDPOINT environment variable."
+        if backend.endpoint_name:
+            recommendation = (
+                f"Verify Databricks endpoint '{backend.endpoint_name}' is accessible."
+            )
 
         findings.append(
             Finding(
