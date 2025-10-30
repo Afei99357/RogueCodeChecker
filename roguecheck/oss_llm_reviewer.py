@@ -142,6 +142,87 @@ def create_llm_backend(endpoint_name: Optional[str] = None) -> DatabricksLLMBack
 
 
 # ============================================================================
+# Cell Batching Logic
+# ============================================================================
+
+
+def _batch_notebook_cells(files: List[str], max_batch_size: int) -> List[List[str]]:
+    """
+    Batch extracted notebook cells together to reduce LLM calls.
+
+    Groups files from the same notebook (matching __cell pattern) into batches
+    that fit within max_batch_size. Other files are kept as single-file batches.
+
+    Args:
+        files: List of file paths to scan
+        max_batch_size: Maximum total size in bytes for a batch
+
+    Returns:
+        List of batches, where each batch is a list of file paths
+    """
+    import re
+
+    # Group files by notebook origin
+    notebook_cells: dict[str, List[str]] = {}
+    standalone_files: List[str] = []
+
+    for file_path in files:
+        # Check if this is an extracted notebook cell
+        basename = os.path.basename(file_path)
+        match = re.match(r"(.+)__(cell|sqlblock)(\d+)\.(py|sql)$", basename)
+
+        if match:
+            notebook_name = match.group(1)
+            if notebook_name not in notebook_cells:
+                notebook_cells[notebook_name] = []
+            notebook_cells[notebook_name].append(file_path)
+        else:
+            standalone_files.append(file_path)  # type: ignore[unreachable]
+
+    # Create batches
+    batches: List[List[str]] = []
+
+    # Each standalone file gets its own batch
+    for file_path in standalone_files:
+        batches.append([file_path])
+
+    # Batch cells from the same notebook
+    for notebook_name, cells in notebook_cells.items():
+        # Sort cells by cell number for logical order
+        cells_sorted = sorted(cells)
+
+        current_batch: List[str] = []
+        current_size = 0
+
+        for cell_path in cells_sorted:
+            try:
+                cell_size = os.path.getsize(cell_path)
+
+                # If adding this cell would exceed limit, start new batch
+                if current_batch and current_size + cell_size > max_batch_size:
+                    batches.append(current_batch)
+                    current_batch = []
+                    current_size = 0
+
+                current_batch.append(cell_path)
+                current_size += cell_size
+
+            except OSError:
+                # If we can't get size, put in separate batch
+                if current_batch:
+                    batches.append(current_batch)
+                    current_batch = []
+                    current_size = 0
+                batches.append([cell_path])
+
+        # Add remaining cells
+        if current_batch:
+            batches.append(current_batch)
+
+    return batches
+
+
+# ============================================================================
 # LLM Review Prompts
 # ============================================================================
 
@@ -447,70 +528,142 @@ def scan_with_llm_review(
                 findings_by_file[path] = []
             findings_by_file[path].append(finding)
 
-    # Scan each file
-    print(f"\n🤖 LLM Review: Scanning {len(scan_files)} file(s)...")
-    for idx, file_path in enumerate(scan_files, 1):
+    # Batch extracted notebook cells together to reduce LLM calls
+    batched_files = _batch_notebook_cells(scan_files, max_file_size)
+
+    # Scan each batch
+    print(f"\n🤖 LLM Review: Scanning {len(batched_files)} batch(es)...")
+    for idx, batch in enumerate(batched_files, 1):
         try:
-            # Skip large files
-            file_size = os.path.getsize(file_path)
-            if file_size > max_file_size:
-                print(
-                    f"  [{idx}/{len(scan_files)}] ⏭️  Skipping {relpath(file_path, root)} (too large: {file_size} bytes)"
-                )
-                continue
+            # Handle single file vs batch
+            if len(batch) == 1:
+                # Single file
+                file_path = batch[0]
+                file_size = os.path.getsize(file_path)
 
-            # Read file
-            code = read_text(file_path)
-            if not code.strip():
-                print(
-                    f"  [{idx}/{len(scan_files)}] ⏭️  Skipping {relpath(file_path, root)} (empty)"
-                )
-                continue
+                # Skip large files
+                if file_size > max_file_size:
+                    print(
+                        f"  [{idx}/{len(batched_files)}] ⏭️  Skipping {relpath(file_path, root)} (too large: {file_size} bytes)"
+                    )
+                    continue
 
-            # Determine which prompt to use
-            rel_path = relpath(file_path, root)
-            file_existing_findings = findings_by_file.get(rel_path, [])
+                # Read file
+                code = read_text(file_path)
+                if not code.strip():
+                    print(
+                        f"  [{idx}/{len(batched_files)}] ⏭️  Skipping {relpath(file_path, root)} (empty)"
+                    )
+                    continue
 
-            if file_existing_findings:
-                # ENRICHMENT MODE: File has findings - look for additional issues
-                print(
-                    f"  [{idx}/{len(scan_files)}] 🔍 Enriching {rel_path} ({len(file_existing_findings)} existing findings)..."
-                )
-                # Format existing findings for prompt
-                findings_text = "\n".join(
-                    f"- {f.rule_id}: {f.message} (line {f.position.line})"
-                    for f in file_existing_findings
-                )
-                prompt = ENRICHMENT_PROMPT.format(
-                    existing_findings=findings_text, code=code
-                )
+                # Determine which prompt to use
+                rel_path = relpath(file_path, root)
+                file_existing_findings = findings_by_file.get(rel_path, [])
+
+                if file_existing_findings:
+                    # ENRICHMENT MODE
+                    print(
+                        f"  [{idx}/{len(batched_files)}] 🔍 Enriching {rel_path} ({len(file_existing_findings)} existing findings)..."
+                    )
+                    findings_text = "\n".join(
+                        f"- {f.rule_id}: {f.message} (line {f.position.line})"
+                        for f in file_existing_findings
+                    )
+                    prompt = ENRICHMENT_PROMPT.format(
+                        existing_findings=findings_text, code=code
+                    )
+                else:
+                    # GAP-FILLING MODE
+                    print(
+                        f"  [{idx}/{len(batched_files)}] 🔍 Reviewing {rel_path} (gap-filling)..."
+                    )
+                    prompt = GAP_FILLING_PROMPT.format(code=code)
+
+                # Get LLM analysis
+                response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
+
+                # Parse findings for single file
+                file_findings = parse_llm_findings(response, rel_path, code)
+                findings.extend(file_findings)
+
+                if file_findings:
+                    print(f"      ✓ Found {len(file_findings)} additional issue(s)")
+                else:
+                    print(f"      ✓ No additional issues found")
+
             else:
-                # GAP-FILLING MODE: File has no findings - do full review
+                # Multiple files batched together (notebook cells)
+                # Combine code from all cells
+                combined_code = ""
+                cell_map = []  # Track which lines belong to which file
+                current_line = 1
+
+                for cell_path in batch:
+                    try:
+                        cell_code = read_text(cell_path)
+                        if cell_code.strip():
+                            # Add separator
+                            cell_name = os.path.basename(cell_path)
+                            combined_code += f"\n# ===== {cell_name} =====\n"
+                            current_line += 2
+
+                            # Track line mapping
+                            cell_start = current_line
+                            cell_lines = cell_code.count("\n") + 1
+                            cell_map.append((cell_path, cell_start, cell_lines))
+
+                            combined_code += cell_code + "\n"
+                            current_line += cell_lines + 1
+                    except Exception:
+                        pass
+
+                if not combined_code.strip():
+                    print(
+                        f"  [{idx}/{len(batched_files)}] ⏭️  Skipping batch of {len(batch)} cells (all empty)"
+                    )
+                    continue
+
+                # Review the combined code
+                batch_name = f"{len(batch)} cells from {os.path.basename(batch[0]).split('__')[0]}"
                 print(
-                    f"  [{idx}/{len(scan_files)}] 🔍 Reviewing {rel_path} (gap-filling)..."
+                    f"  [{idx}/{len(batched_files)}] 🔍 Reviewing {batch_name} (batched, gap-filling)..."
                 )
-                prompt = GAP_FILLING_PROMPT.format(code=code)
+                prompt = GAP_FILLING_PROMPT.format(code=combined_code)
 
-            # Get LLM analysis
-            response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
+                # Get LLM analysis
+                response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
 
-            # Parse findings
-            file_findings = parse_llm_findings(response, rel_path, code)
-            findings.extend(file_findings)
+                # Parse findings - they'll have line numbers relative to combined code
+                # We need to map them back to individual cells
+                batch_findings = parse_llm_findings(response, "batch", combined_code)
 
-            if file_findings:
-                print(f"      ✓ Found {len(file_findings)} additional issue(s)")
-            else:
-                print(f"      ✓ No additional issues found")
+                # Map findings back to individual cells
+                for finding in batch_findings:
+                    finding_line = finding.position.line
+
+                    # Find which cell this line belongs to
+                    for cell_path, start_line, num_lines in cell_map:
+                        if start_line <= finding_line < start_line + num_lines:
+                            # Update finding to point to correct cell
+                            finding.path = relpath(cell_path, root)
+                            finding.position.line = finding_line - start_line + 1
+                            findings.append(finding)
+                            break
+
+                if batch_findings:
+                    print(f"      ✓ Found {len(batch_findings)} issue(s) across batch")
+                else:
+                    print(f"      ✓ No additional issues found")
 
         except Exception as e:
             # Add diagnostic for failed reviews
+            batch_desc = batch[0] if len(batch) == 1 else f"batch of {len(batch)} files"
             findings.append(
                 Finding(
                     rule_id="LLM_REVIEW_ERROR",
                     severity="low",
-                    message=f"LLM review failed for {file_path}: {e}",
-                    path=relpath(file_path, root),
+                    message=f"LLM review failed for {batch_desc}: {e}",
+                    path=relpath(batch[0], root) if batch else "unknown",
                     position=Position(1, 1),
                     snippet=None,
                     recommendation="Check LLM backend configuration and file accessibility.",

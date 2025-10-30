@@ -126,7 +126,7 @@ SEMGREP_PACKS = "p/security-audit,p/owasp-top-ten,p/secrets,p/python"
 
 # LLM Configuration (for llm-review tool)
 LLM_ENDPOINT = "databricks-claude-sonnet-4-5"  # Databricks serving endpoint
-ENABLE_LLM_REVIEW = False  # Set to True to enable LLM review
+ENABLE_LLM_REVIEW = True  # Set to True to enable LLM review
 
 # Output configuration
 OUTPUT_FORMAT = "md"  # Options: md, json, sarif
