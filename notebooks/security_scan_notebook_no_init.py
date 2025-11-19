@@ -132,7 +132,7 @@ ENABLE_LLM_REVIEW = True  # Set to True to enable LLM review
 OUTPUT_FORMAT = "md"  # Options: md, json, sarif
 # Use Unity Catalog Volume paths for file writes
 OUTPUT_PATH = "/Volumes/1dp_mfg_sbx/validation_test_eric/validation_reports/scan_report.md"
-PER_FILE_OUTPUT_DIR = "/Volumes/1dp_mfg_sbx/validation_test_eric/validation_reports/per_file_reports/"
+PER_FILE_OUTPUT_DIR = None  # Disable per-file reports (only generate main report)
 
 # Fail threshold
 FAIL_ON_SEVERITY = "high"  # Options: low, medium, high, critical
