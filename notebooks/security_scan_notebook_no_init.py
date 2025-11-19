@@ -130,8 +130,9 @@ ENABLE_LLM_REVIEW = True  # Set to True to enable LLM review
 
 # Output configuration
 OUTPUT_FORMAT = "md"  # Options: md, json, sarif
-OUTPUT_PATH = "/Workspace/Users/eliao@bpcs.com/gogue_code_test/security_scans/scan_report.md"
-PER_FILE_OUTPUT_DIR = "/Workspace/Users/eliao@bpcs.com/gogue_code_test/security_scans/per_file_reports/"
+# Use Unity Catalog Volume paths for file writes
+OUTPUT_PATH = "/Volumes/1dp_mfg_sbx/validation_test_eric/validation_reports/scan_report.md"
+PER_FILE_OUTPUT_DIR = "/Volumes/1dp_mfg_sbx/validation_test_eric/validation_reports/per_file_reports/"
 
 # Fail threshold
 FAIL_ON_SEVERITY = "high"  # Options: low, medium, high, critical
