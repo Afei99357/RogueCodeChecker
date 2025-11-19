@@ -223,47 +223,173 @@ def _batch_notebook_cells(files: List[str], max_batch_size: int) -> List[List[st
 
 
 # ============================================================================
+# Platform Detection
+# ============================================================================
+
+
+def _detect_platform_context(code: str) -> str:
+    """
+    Detect execution platform from code patterns.
+
+    Returns a context string to help LLM understand the security model.
+    """
+    # Databricks indicators
+    if any(
+        x in code
+        for x in [
+            "dbutils",
+            "spark.table",
+            "Unity Catalog",
+            "/Volumes/",
+            "DATABRICKS_",
+            "saveAsTable",
+        ]
+    ):
+        return """
+**DETECTED PLATFORM: Databricks with Unity Catalog**
+- Unity Catalog enforces table/volume access controls automatically
+- saveAsTable() is Spark DataFrame API (NOT SQL string) - validates table names
+- Workspace provides authentication via service principals
+- Volume paths are access-controlled, preventing path traversal
+- Config values in notebooks are code, not user input (unless from widgets/getArgument)
+"""
+
+    # AWS Lambda indicators
+    if "def lambda_handler" in code or "boto3" in code or "aws_lambda" in code:
+        return """
+**DETECTED PLATFORM: AWS Lambda**
+- IAM roles provide authentication and authorization
+- boto3 SDK methods validate resource names
+- Environment variables from Lambda config are trusted
+- Check for user input from event payload
+"""
+
+    # Azure Functions indicators
+    if "azure.functions" in code or "def main(req: func." in code:
+        return """
+**DETECTED PLATFORM: Azure Functions**
+- Azure AD provides authentication
+- SDK methods validate resource names
+- Environment variables from function config are trusted
+- Check for user input from HTTP requests
+"""
+
+    # Web frameworks
+    if any(x in code for x in ["Flask", "FastAPI", "Django", "@app.route", "@api"]):
+        return """
+**DETECTED PLATFORM: Web Framework (Flask/FastAPI/Django)**
+- Check for framework-provided authentication decorators
+- Framework may provide input validation
+- ALL HTTP request parameters are user-controlled
+- Check for CSRF, XSS, SQL injection in web context
+"""
+
+    # Generic Python
+    return """
+**PLATFORM: Unknown/Generic Python**
+- Assume NO built-in authentication or access controls
+- Validate all external inputs carefully
+- Check for common Python vulnerabilities
+"""
+
+
+# ============================================================================
 # LLM Review Prompts
 # ============================================================================
 
 # Prompt for files with NO findings from OSS tools - do full review
-GAP_FILLING_PROMPT = """You are a security expert reviewing code for vulnerabilities. Static analysis tools found NO issues in this file, but they may have missed something.
+GAP_FILLING_PROMPT = """You are a security expert reviewing code for REAL, EXPLOITABLE vulnerabilities.
 
-**YOUR MISSION:** Find security issues that pattern-based tools missed.
+{platform_context}
 
-**CRITICAL VULNERABILITIES TO DETECT:**
-1. **eval() or exec()**: Arbitrary code execution
-2. **pickle.load()**: Unsafe deserialization
-3. **os.system()**: Shell command injection
-4. **subprocess with shell=True**: Command injection
-5. **SQL string concatenation/f-strings**: SQL injection
-6. **requests with verify=False**: Disabled SSL verification
-7. **yaml.load() without SafeLoader**: Code execution via YAML
-8. **Hardcoded secrets**: API keys, passwords, tokens in code
-9. **Prompt Injection**: Unsanitized user input in LLM prompts
-10. **Authentication Issues**: Missing or weak authentication
-11. **Input Validation**: Missing validation on user inputs
-12. **Logic flaws**: Race conditions, business logic bypasses
+**CRITICAL: Avoid False Positives**
+Before flagging an issue, answer these 4 questions:
 
-**INSTRUCTIONS:**
-- Focus on semantic issues that regex/patterns can't catch
-- Look for context-dependent vulnerabilities
-- Analyze data flow and control flow
-- Ignore comments - analyze actual code behavior
-- Even if it's a test file, report all vulnerabilities
-- **IMPORTANT**: Report only ONE vulnerability per line of code (group related issues together)
-- If a line has multiple related problems, combine them into a single finding with the most specific title
+**Q1: Is this input ATTACKER-CONTROLLED?**
+✅ YES: User widgets (dbutils.widgets.get), HTTP request params, CLI args, file uploads, untrusted env vars
+❌ NO: Hardcoded config dicts, constants in code, internal configuration
 
-For each vulnerability found, respond in this EXACT format:
+**Q2: Does the PLATFORM or CODE validate this input?**
+✅ Validated: API methods (saveAsTable, boto3 SDK), framework validators, allowlist checks
+❌ Not validated: String concatenation, direct SQL/shell execution, no input checks
 
-VULNERABILITY: <brief title>
+**Q3: Can you write a REALISTIC exploit payload?**
+✅ YES: Provide specific exploit example
+❌ NO: If you can't demonstrate it, don't report it
+
+**Q4: What's the ACTUAL impact?**
+✅ Real: SQL injection reads data, RCE executes commands, auth bypass grants access
+❌ Theoretical: "Could maybe affect something" is not enough
+
+**Only report if ALL 4 answers indicate a real vulnerability.**
+
+**VULNERABILITY CATEGORIES:**
+
+**1. Code Execution:**
+- eval()/exec() with user input
+- Unsafe deserialization (pickle.load, yaml.load)
+- Template injection with user data
+- Dynamic imports from untrusted sources
+
+**2. Injection Attacks:**
+- SQL injection via STRING CONCATENATION: ✅ spark.sql(f"SELECT * FROM {user_var}")
+- SQL injection via API methods: ❌ df.write.saveAsTable(var)  # API validates, not vulnerable
+- Command injection: os.system() or subprocess(shell=True) with user input
+- Prompt injection: User input directly in LLM system prompts
+
+**3. Authentication & Authorization:**
+- Missing auth on PUBLIC endpoints (not platform-authenticated operations)
+- Hardcoded credentials IN CODE (not config file references)
+- Privilege escalation in business logic
+
+**4. Data Exposure:**
+- Hardcoded secrets: API keys, passwords IN code
+- Logging sensitive data without sanitization
+- Disabled SSL verification (requests(verify=False))
+
+**EXAMPLES - What to FLAG vs. IGNORE:**
+
+❌ DON'T FLAG (False Positives):
+```python
+# Config dict in code (not user input)
+config = {"table": "catalog.schema.table"}
+df.write.saveAsTable(config["table"])  # API validates
+
+# Platform-controlled paths
+path = "/Volumes/catalog/schema/volume/data"  # Access controlled
+
+# Framework auth (Databricks workspace auth)
+# No need for manual auth checks in notebooks
+```
+
+✅ DO FLAG (Real Issues):
+```python
+# User input in SQL string
+table = dbutils.widgets.get("table_name")
+spark.sql(f"SELECT * FROM {table}")  # SQL INJECTION!
+
+# User input in shell
+cmd = request.args.get("cmd")
+os.system(cmd)  # COMMAND INJECTION!
+
+# Hardcoded secret
+api_key = "sk_live_abc123"  # SECRET IN CODE!
+```
+
+**OUTPUT FORMAT:**
+For each REAL vulnerability:
+
+VULNERABILITY: <specific title>
 SEVERITY: <CRITICAL|HIGH|MEDIUM|LOW>
+CONFIDENCE: <HIGH|MEDIUM|LOW>
 LINE: <line number>
-DESCRIPTION: <detailed explanation>
-RECOMMENDATION: <how to fix>
+DESCRIPTION: <Q1-Q4 analysis + exploitation path>
+RECOMMENDATION: <concrete fix>
 ---
 
-If NO additional vulnerabilities found, respond with exactly: "NO_SECURITY_ISSUES_FOUND"
+**Only include HIGH or MEDIUM confidence findings.**
+
+If NO real vulnerabilities found, respond: "NO_SECURITY_ISSUES_FOUND"
 
 Code to review:
 ```
@@ -273,51 +399,71 @@ Code to review:
 Your security analysis:"""
 
 # Prompt for files WITH findings - look for ADDITIONAL issues only
-ENRICHMENT_PROMPT = """You are a security expert reviewing code. Static analysis tools already found these issues:
+ENRICHMENT_PROMPT = """You are a security expert reviewing code for REAL, EXPLOITABLE vulnerabilities.
 
+{platform_context}
+
+Static analysis tools already found these issues:
 {existing_findings}
 
-**YOUR MISSION:** Find ADDITIONAL security issues that the tools missed. DO NOT repeat the issues above.
+**YOUR MISSION:** Find ADDITIONAL security issues. DO NOT repeat the issues above.
 
-**CRITICAL VULNERABILITIES TO CHECK (that tools may have missed):**
-1. **eval() or exec()**: Arbitrary code execution (indirect patterns)
-2. **pickle.load()**: Unsafe deserialization (dynamic module loading)
-3. **os.system()**: Shell command injection (via variables)
-4. **subprocess with shell=True**: Command injection (partial user input)
-5. **SQL string concatenation/f-strings**: SQL injection (complex patterns)
-6. **requests with verify=False**: Disabled SSL verification (conditionally set)
-7. **yaml.load() without SafeLoader**: Code execution via YAML (custom loaders)
-8. **Hardcoded secrets**: API keys, passwords, tokens (obfuscated or encoded)
-9. **Prompt Injection**: Unsanitized user input in LLM prompts (indirect flow)
-10. **Authentication Issues**: Missing or weak authentication (logic-level)
-11. **Input Validation**: Missing validation on user inputs (complex inputs)
-12. **Logic flaws**: Race conditions, business logic bypasses, TOCTOU
+**CRITICAL: Avoid False Positives**
+Before flagging an issue, answer these 4 questions:
 
-**FOCUS AREAS:**
-- Context-dependent vulnerabilities the tools can't understand
-- Complex data flow issues (multi-step injection paths)
-- Indirect code injection paths (via config, templates, imports)
-- Authentication/authorization flaws in business logic
-- Configuration issues that depend on usage context
+**Q1: Is this input ATTACKER-CONTROLLED?**
+✅ YES: User widgets, HTTP params, CLI args, file uploads, untrusted env vars
+❌ NO: Hardcoded config, constants, internal configuration
 
-**INSTRUCTIONS:**
-- Only report NEW issues not already listed above in the findings
-- Focus on semantic/contextual security problems
-- Analyze how the code is used in context
-- Look for indirect/complex patterns of the critical vulnerabilities
-- **IMPORTANT**: Report only ONE vulnerability per line of code (group related issues together)
-- If a line has multiple related problems, combine them into a single finding with the most specific title
+**Q2: Does the PLATFORM or CODE validate this input?**
+✅ Validated: API methods, framework validators, allowlist checks
+❌ Not validated: String concat, direct SQL/shell exec, no checks
 
-For each NEW vulnerability found, respond in this EXACT format:
+**Q3: Can you write a REALISTIC exploit payload?**
+✅ YES: Provide specific exploit example
+❌ NO: If you can't demonstrate it, don't report it
 
-VULNERABILITY: <brief title>
+**Q4: What's the ACTUAL impact?**
+✅ Real: Concrete damage (data exfiltration, RCE, auth bypass)
+❌ Theoretical: Vague "could maybe" scenarios
+
+**Only report if ALL 4 answers indicate a real vulnerability.**
+
+**FOCUS AREAS (beyond what static tools caught):**
+- Indirect injection paths (multi-step, via config/templates)
+- Complex data flow vulnerabilities
+- Business logic flaws (TOCTOU, race conditions)
+- Context-dependent security issues
+- Obfuscated or encoded sensitive data
+
+**EXAMPLES - What to FLAG vs. IGNORE:**
+
+❌ DON'T FLAG:
+- API methods with built-in validation (saveAsTable, boto3 SDK)
+- Platform-provided auth (workspace, IAM, framework decorators)
+- Hardcoded config values (not user-controllable)
+- Access-controlled storage paths
+
+✅ DO FLAG:
+- User input in SQL strings: spark.sql(f"... {user_var}")
+- Multi-step injection: config loaded → user input → execution
+- Business logic bypasses in auth/authorization
+- Obfuscated secrets: base64-encoded keys
+
+**OUTPUT FORMAT:**
+For each NEW vulnerability:
+
+VULNERABILITY: <specific title>
 SEVERITY: <CRITICAL|HIGH|MEDIUM|LOW>
+CONFIDENCE: <HIGH|MEDIUM|LOW>
 LINE: <line number>
-DESCRIPTION: <detailed explanation>
-RECOMMENDATION: <how to fix>
+DESCRIPTION: <Q1-Q4 analysis + exploitation path>
+RECOMMENDATION: <concrete fix>
 ---
 
-If NO additional vulnerabilities found beyond what tools detected, respond: "NO_ADDITIONAL_ISSUES_FOUND"
+**Only include HIGH or MEDIUM confidence findings.**
+
+If NO additional vulnerabilities beyond static tool findings, respond: "NO_ADDITIONAL_ISSUES_FOUND"
 
 Code to review:
 ```
@@ -374,12 +520,18 @@ def parse_llm_findings(response: str, file_path: str, code: str) -> List[Finding
                     "LINE",
                     "DESCRIPTION",
                     "RECOMMENDATION",
+                    "CONFIDENCE",
                 ]:
                     vuln_data[key] = value
 
             # Validate required fields
             if not all(k in vuln_data for k in ["VULNERABILITY", "SEVERITY", "LINE"]):
                 continue
+
+            # Filter LOW confidence findings
+            confidence = vuln_data.get("CONFIDENCE", "MEDIUM").upper()
+            if confidence == "LOW":
+                continue  # Skip low confidence findings
 
             # Map severity
             severity_map: dict[str, Literal["critical", "high", "medium", "low"]] = {
@@ -556,6 +708,9 @@ def scan_with_llm_review(
                     )
                     continue
 
+                # Detect platform context
+                platform_context = _detect_platform_context(code)
+
                 # Determine which prompt to use
                 rel_path = relpath(file_path, root)
                 file_existing_findings = findings_by_file.get(rel_path, [])
@@ -570,14 +725,18 @@ def scan_with_llm_review(
                         for f in file_existing_findings
                     )
                     prompt = ENRICHMENT_PROMPT.format(
-                        existing_findings=findings_text, code=code
+                        platform_context=platform_context,
+                        existing_findings=findings_text,
+                        code=code,
                     )
                 else:
                     # GAP-FILLING MODE
                     print(
                         f"  [{idx}/{len(batched_files)}] 🔍 Reviewing {rel_path} (gap-filling)..."
                     )
-                    prompt = GAP_FILLING_PROMPT.format(code=code)
+                    prompt = GAP_FILLING_PROMPT.format(
+                        platform_context=platform_context, code=code
+                    )
 
                 # Get LLM analysis
                 response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
@@ -623,12 +782,17 @@ def scan_with_llm_review(
                     )
                     continue
 
+                # Detect platform context
+                platform_context = _detect_platform_context(combined_code)
+
                 # Review the combined code
                 batch_name = f"{len(batch)} cells from {os.path.basename(batch[0]).split('__')[0]}"
                 print(
                     f"  [{idx}/{len(batched_files)}] 🔍 Reviewing {batch_name} (batched, gap-filling)..."
                 )
-                prompt = GAP_FILLING_PROMPT.format(code=combined_code)
+                prompt = GAP_FILLING_PROMPT.format(
+                    platform_context=platform_context, code=combined_code
+                )
 
                 # Get LLM analysis
                 response = backend.generate(prompt, max_tokens=2000, temperature=0.1)
