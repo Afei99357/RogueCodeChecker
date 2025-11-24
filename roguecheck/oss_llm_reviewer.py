@@ -352,7 +352,7 @@ Before flagging an issue, answer these 4 questions:
 ❌ DON'T FLAG (False Positives):
 ```python
 # Config dict in code (not user input)
-config = {"table": "catalog.schema.table"}
+config = {{"table": "catalog.schema.table"}}
 df.write.saveAsTable(config["table"])  # API validates
 
 # Platform-controlled paths
