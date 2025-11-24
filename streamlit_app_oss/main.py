@@ -46,9 +46,31 @@ def main():
     with col2:
         st.subheader("🔍 Scan Results")
         if uploaded_files:
-            scanner_service = ScannerService(config)
-            with st.spinner("Running security scan..."):
-                results = scanner_service.scan_uploaded_files(uploaded_files)
+            # Create cache key based on uploaded files and config
+            file_names = tuple(sorted([f.name for f in uploaded_files]))
+            file_contents_hash = hash(tuple(f.getvalue() for f in uploaded_files))
+            config_hash = hash(tuple(sorted(f"{k}:{v}" for k, v in config.items())))
+            cache_key = f"{file_names}_{file_contents_hash}_{config_hash}"
+
+            # Check if we need to rescan (files or config changed)
+            if (
+                "scan_cache_key" not in st.session_state
+                or st.session_state.scan_cache_key != cache_key
+            ):
+                # Run scan only if files or config changed
+                scanner_service = ScannerService(config)
+                with st.spinner("Running security scan..."):
+                    results = scanner_service.scan_uploaded_files(uploaded_files)
+
+                # Cache results in session state
+                st.session_state.scan_results = results
+                st.session_state.scan_cache_key = cache_key
+                st.session_state.scanner_service = scanner_service
+            else:
+                # Reuse cached results
+                results = st.session_state.scan_results
+                scanner_service = st.session_state.scanner_service
+
             if results.get("error"):
                 st.error(f"❌ Scanning failed: {results['error']}")
             else:
