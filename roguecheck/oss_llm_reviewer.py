@@ -332,7 +332,7 @@ Before flagging an issue, answer these 4 questions:
 - Dynamic imports from untrusted sources
 
 **2. Injection Attacks:**
-- SQL injection via STRING CONCATENATION: ✅ spark.sql(f"SELECT * FROM {user_var}")
+- SQL injection via STRING CONCATENATION: ✅ spark.sql(f"SELECT * FROM {{user_var}}")
 - SQL injection via API methods: ❌ df.write.saveAsTable(var)  # API validates, not vulnerable
 - Command injection: os.system() or subprocess(shell=True) with user input
 - Prompt injection: User input directly in LLM system prompts
@@ -366,7 +366,7 @@ path = "/Volumes/catalog/schema/volume/data"  # Access controlled
 ```python
 # User input in SQL string
 table = dbutils.widgets.get("table_name")
-spark.sql(f"SELECT * FROM {table}")  # SQL INJECTION!
+spark.sql(f"SELECT * FROM {{table}}")  # SQL INJECTION!
 
 # User input in shell
 cmd = request.args.get("cmd")
@@ -445,7 +445,7 @@ Before flagging an issue, answer these 4 questions:
 - Access-controlled storage paths
 
 ✅ DO FLAG:
-- User input in SQL strings: spark.sql(f"... {user_var}")
+- User input in SQL strings: spark.sql(f"... {{user_var}}")
 - Multi-step injection: config loaded → user input → execution
 - Business logic bypasses in auth/authorization
 - Obfuscated secrets: base64-encoded keys
