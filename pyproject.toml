@@ -13,7 +13,7 @@ dependencies = [
     "sqlfluff==3.4.2",
     "shellcheck-py==0.11.0.1",
     "pip-audit>=2.7.0",
-    "mlflow-skinny[databricks]>=2.16.0",
+    "mlflow-skinny[databricks]==3.12.0",
 ]
 
 [dependency-groups]
