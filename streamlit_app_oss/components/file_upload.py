@@ -95,7 +95,7 @@ def render_file_upload() -> List:
                     )
             with col4:
                 st.write("")  # spacing
-                if st.button("🗑️ Clear", use_container_width=True):
+                if st.button("🗑️ Clear", width="stretch"):
                     st.session_state.uploader_key += 1
                     st.rerun()
 
